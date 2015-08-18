@@ -1,3 +1,6 @@
+#ifndef SERIALIZATION_UTILS_H
+#define SERIALIZATION_UTILS_H
+
 #include <memory>
 #include <vector>
 #include <utility>
@@ -5,7 +8,8 @@
 #include <type_traits>
 #include <limits>
 #include <iostream>
-#include "SerializerStream.h"
+
+class SerializerStream;
 
 template <typename T>
 std::shared_ptr<T> make_shared(T *p){
@@ -41,7 +45,9 @@ public:
 struct ObjectNode{
 	void *address;
 	std::function<NodeIterator()> get_children;
-	std::function<void (SerializerStream &)> serialize;
+	typedef std::function<void (SerializerStream &)> serialize_t;
+	serialize_t serialize;
+	std::function<std::uint32_t()> get_typeid;
 };
 
 template <typename T>
@@ -53,6 +59,9 @@ ObjectNode get_object_node_default(T *n){
 		},
 		[n](SerializerStream &ss){
 			ss.serialize_id(n);
+		},
+		[](){
+			return 0;
 		}
 	};
 }
@@ -98,6 +107,9 @@ ObjectNode get_object_node(T **p){
 		},
 		[p](SerializerStream &ss){
 			ss.serialize_id(p);
+		},
+		[](){
+			return 0;
 		}
 	};
 }
@@ -116,6 +128,9 @@ ObjectNode get_object_node(std::shared_ptr<T> *p){
 		},
 		[p](SerializerStream &ss){
 			ss.serialize_id(p);
+		},
+		[](){
+			return 0;
 		}
 	};
 }
@@ -129,6 +144,9 @@ ObjectNode get_object_node_sequence(T *p){
 		},
 		[p](SerializerStream &ss){
 			ss.serialize_id(p);
+		},
+		[](){
+			return 0;
 		}
 	};
 }
@@ -162,6 +180,9 @@ ObjectNode get_object_node_assoc(T *p){
 		},
 		[p](SerializerStream &ss){
 			ss.serialize_id(p);
+		},
+		[](){
+			return 0;
 		}
 	};
 }
@@ -180,3 +201,5 @@ template <typename T>
 ObjectNode get_object_node(const std::shared_ptr<T> &n){
 	return get_object_node(n.get());
 }
+
+#endif

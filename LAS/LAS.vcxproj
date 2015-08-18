@@ -83,6 +83,9 @@
   <ItemGroup>
     <ClInclude Include="$(SolutionDir)\src\las.h" />
     <ClInclude Include="$(SolutionDir)\src\tinyxml2\tinyxml2.h" />
+    <ClInclude Include="$(SolutionDir)\postsrc\serialization_utils.h" />
+    <ClInclude Include="$(SolutionDir)\postsrc\SerializerStream.h" />
+    <ClInclude Include="$(SolutionDir)\postsrc\Serializable.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

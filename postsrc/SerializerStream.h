@@ -1,3 +1,6 @@
+#ifndef SERIALIZERSTREAM_H
+#define SERIALIZERSTREAM_H
+
 #include <iostream>
 #include <cstdint>
 #include <cmath>
@@ -8,6 +11,9 @@
 #include <map>
 #include <unordered_map>
 #include <boost/static_assert.hpp>
+#include <stack>
+#include "serialization_utils.h"
+#include "Serializable.h"
 
 template <typename T>
 typename std::make_unsigned<T>::type ints_to_uints(T z){
@@ -53,16 +59,30 @@ struct floating_point_mapping<long double>{
 };
 
 class SerializerStream{
-	std::unordered_map<uintptr_t, unsigned> id_map;
+	typedef unsigned objectid_t;
+	objectid_t next_object_id;
+	std::unordered_map<uintptr_t, objectid_t> id_map;
+	std::map<objectid_t, ObjectNode> node_map;
 	std::ostream *stream;
+
+	objectid_t get_oid();
+	objectid_t save_object(void *p);
 public:
 	SerializerStream(std::ostream &);
+	void begin_serialization(const Serializable &obj);
 	void serialize_id(void *p){
 		auto it = this->id_map.find((uintptr_t)p);
 		if (it == this->id_map.end())
 			abort();
 		this->serialize(it->second);
 	}
+	/*
+	void serialize(const Serializable *t){
+		//t->get_object_node()
+	}
+	void serialize(const std::shared_ptr<Serializable> &t){
+	}
+	*/
 	void serialize(std::uint8_t c){
 		this->stream->write((const char *)&c, 1);
 	}
@@ -149,3 +169,5 @@ public:
 		this->serialize_maplike(s.begin(), s.end(), s.size());
 	}
 };
+
+#endif

@@ -13,27 +13,36 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Header Files\postsrc">
+      <UniqueIdentifier>{dcc69027-a486-4488-9d41-54a12af89236}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="$(SolutionDir)\src\las.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="las.cpp">
+    <ClCompile Include="$(SolutionDir)\src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="tinyxml2\tinyxml2.cpp">
+    <ClCompile Include="$(SolutionDir)\src\tinyxml2\tinyxml2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="las.h">
+    <ClInclude Include="$(SolutionDir)\src\las.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="tinyxml2\tinyxml2.h">
+    <ClInclude Include="$(SolutionDir)\src\tinyxml2\tinyxml2.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="serialization_utils.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="$(SolutionDir)\postsrc\serialization_utils.h">
+      <Filter>Header Files\postsrc</Filter>
+    </ClInclude>
+    <ClInclude Include="$(SolutionDir)\postsrc\SerializerStream.h">
+      <Filter>Header Files\postsrc</Filter>
+    </ClInclude>
+    <ClInclude Include="$(SolutionDir)\postsrc\Serializable.h">
+      <Filter>Header Files\postsrc</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

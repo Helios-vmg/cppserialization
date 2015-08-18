@@ -1,6 +1,8 @@
 #include "las.h"
 #include <fstream>
 
+unsigned UserClass::next_type_id = 0;
+
 struct autoset{
 	bool &b;
 	autoset(bool &b): b(b){
@@ -28,31 +30,38 @@ void UserClass::add_headers(std::set<std::string> &set){
 void UserClass::generate_header(std::ostream &stream) const{
 	stream << "class " << this->name;
 	if (this->base_classes.size() > 0){
-		stream << " : ";
-		bool first = true;
-		for (auto &base : this->base_classes){
-			if (!first)
-				stream << ", ";
-			else
-				first = false;
-			stream << "public " << base->name;
-		}
+		stream << " : public Serializable";
+		for (auto &base : this->base_classes)
+			stream << ", public " << base->name;
 	}
 	stream << "{\n";
 	for (auto &el : this->elements)
 		stream << "\t" << el << (el->needs_semicolon() ? ";\n" : "\n");
-	stream << "\tpublic: " << this->name << "(std::istream &);\n"
-		"\tvoid serialize(SerializationStream &);\n"
-		"\tNodeIterator get_node_iterator();\n";
-	stream << "};\n";
+	stream <<
+		"public:\n"
+		"\t";
+	stream <<
+		this->name << "(DeserializationStream &);\n"
+		"\tObjectNode get_object_node() override;\n"
+		"\tvoid serialize(SerializerStream &) const override;\n"
+		"\tTypeId get_typeid() const override;\n";
+		"};\n";
 }
 
 void UserClass::generate_source(std::ostream &stream) const{
-	stream << "NodeIterator " << this->name << "::get_node_iterator(){\n";
-
-	stream <<"}\n";
-	stream << "void " << this->name << "::serialize(SerializationStream &ss){\n";
-
+	stream << this->name << "::" << this->name << "(DeserializationStream &ds){\n";
+	stream <<
+		"}\n"
+		"\n"
+		"ObjectNode " << this->name << "::get_object_node(){\n";
+	stream <<
+		"}\n"
+		"\n"
+		"void " << this->name << "::serialize(SerializerStream &ss) const{\n";
+	stream <<
+		"}\n"
+		"\n"
+		"TypeId " << this->name << "::get_typeid() const{\n";
 	stream <<"}\n";
 }
 

@@ -352,6 +352,7 @@ class UserClass : public Type, public CppElement{
 	std::vector<std::shared_ptr<ClassElement> > elements;
 	std::string name;
 	bool adding_headers;
+	static unsigned next_type_id;
 public:
 	UserClass(const std::string &name):
 		adding_headers(false),
