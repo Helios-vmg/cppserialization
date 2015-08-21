@@ -407,7 +407,6 @@ public:
 	const std::string &get_name() const{
 		return this->name;
 	}
-	void generate_get_object_node(std::ostream &) const;
 	void generate_get_object_node2(std::ostream &) const;
 	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
 	void generate_serialize(std::ostream &) const;

@@ -43,7 +43,7 @@ public:
 };
 
 struct ObjectNode{
-	void *address;
+	const void *address;
 	std::function<NodeIterator()> get_children;
 	typedef std::function<void (SerializerStream &)> serialize_t;
 	serialize_t serialize;
@@ -200,6 +200,10 @@ ObjectNode get_object_node(std::unordered_map<T> *p){
 template <typename T>
 ObjectNode get_object_node(const std::shared_ptr<T> &n){
 	return get_object_node(n.get());
+}
+
+inline ObjectNode get_object_node(const Serializable *serializable){
+	return serializable->get_object_node();
 }
 
 #endif

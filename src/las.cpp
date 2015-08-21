@@ -86,35 +86,34 @@ void UserClass::add_headers(std::set<std::string> &set){
 }
 
 void UserClass::generate_header(std::ostream &stream) const{
-	stream << "class " << this->name;
+	stream << "class " << this->name << " : public Serializable";
 	if (this->base_classes.size() > 0){
-		stream << " : public Serializable";
 		for (auto &base : this->base_classes)
 			stream << ", public " << base->name;
 	}
-	stream << "{ ";
+	stream << "{\n";
 	for (auto &el : this->elements)
-		stream << "" << el << (el->needs_semicolon() ? "; " : " ");
+		stream << "" << el << (el->needs_semicolon() ? ";\n" : "\n");
 	stream <<
-		"public: "
+		"public:\n"
 		"";
 	stream <<
-		this->name << "(DeserializationStream &); "
-		"ObjectNode get_object_node() override; "
-		"void get_object_node(std::vector<ObjectNode> &); "
-		"void serialize(SerializerStream &) const override; "
-		"TypeId get_type_id() const override; ";
-		"}; ";
+		this->name << "(DeserializationStream &);\n"
+		"ObjectNode get_object_node() override;\n"
+		"void get_object_node(std::vector<ObjectNode> &);\n"
+		"void serialize(SerializerStream &) const override;\n"
+		"TypeId get_type_id() const override;\n"
+		"};\n";
 }
 
 void UserClass::generate_get_object_node2(std::ostream &stream) const{
 	for (auto &i : this->base_classes)
-		stream << i->get_name() << "::get_object_node(v); ";
+		stream << i->get_name() << "::get_object_node(v);\n";
 
 	auto callback = [&stream](const std::string &s, CallMode mode){
 		std::string addend;
 		if (mode != CallMode::AddVerbatim){
-			addend = (boost::format("v.push_back(get_object_node(%1%)); ") % s).str();
+			addend = (boost::format("v.push_back(get_object_node(%1%));\n") % s).str();
 			if (mode == CallMode::TransformAndReturn)
 				return addend;
 		}else
@@ -136,50 +135,24 @@ void UserClass::generate_pointer_enumerator(generate_pointer_enumerator_callback
 	}
 }
 
-void UserClass::generate_get_object_node(std::ostream &stream) const{
-	stream <<
-		"return\n"
-		"{\n"
-			"this,\n"
-			"[this](){"
-				"auto v = make_shared(new std::vector<ObjectNode>);"
-				"this->get_object_node(*v);"
-				"if (!v->size())\n"
-					"return NodeIterator();"
-				"return NodeIterator(v);"
-			"},\n"
-			"[this](SerializerStream &ss){"
-				"ss.serialize_id(this);"
-			"},\n"
-			"[this](){"
-				"return this->get_type_id();"
-			"}"
-		"};\n";
-}
-
 void UserClass::generate_serialize(std::ostream &stream) const{
 }
 
 void UserClass::generate_source(std::ostream &stream) const{
-	stream << this->name << "::" << this->name << "(DeserializationStream &ds){ ";
+	stream << this->name << "::" << this->name << "(DeserializationStream &ds){\n";
 	stream <<
 		"}\n"
 		"\n"
-		"void " << this->name << "::get_object_node(std::vector<ObjectNode> &v){ ";
+		"void " << this->name << "::get_object_node(std::vector<ObjectNode> &v){\n";
 	this->generate_get_object_node2(stream);
 	stream <<
 		"}\n"
 		"\n"
-		"ObjectNode " << this->name << "::get_object_node(){ ";
-	this->generate_get_object_node(stream);
+		"void " << this->name << "::serialize(SerializerStream &ss) const{\n";
 	stream <<
 		"}\n"
 		"\n"
-		"void " << this->name << "::serialize(SerializerStream &ss) const{ ";
-	stream <<
-		"}\n"
-		"\n"
-		"std::uint32_t " << this->name << "::get_type_id() const{ ";
+		"std::uint32_t " << this->name << "::get_type_id() const{\n";
 	stream <<"}\n";
 }
 
@@ -195,8 +168,10 @@ void CppFile::generate_header(){
 	for (auto &e : this->elements){
 		auto Class = std::dynamic_pointer_cast<UserClass>(e);
 		if (Class)
-			file << "class " << Class->get_name() << "; ";
+			file << "class " << Class->get_name() << ";\n";
 	}
+
+	file << std::endl;
 
 	for (auto &e : this->elements){
 		auto Class = std::dynamic_pointer_cast<UserClass>(e);

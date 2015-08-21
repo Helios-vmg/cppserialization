@@ -66,11 +66,11 @@ class SerializerStream{
 	std::ostream *stream;
 
 	objectid_t get_oid();
-	objectid_t save_object(void *p);
+	objectid_t save_object(const void *p);
 public:
 	SerializerStream(std::ostream &);
 	void begin_serialization(const Serializable &obj);
-	void serialize_id(void *p){
+	void serialize_id(const void *p){
 		auto it = this->id_map.find((uintptr_t)p);
 		if (it == this->id_map.end())
 			abort();
