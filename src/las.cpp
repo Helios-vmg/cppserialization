@@ -86,11 +86,18 @@ void UserClass::add_headers(std::set<std::string> &set){
 }
 
 void UserClass::generate_header(std::ostream &stream) const{
-	stream << "class " << this->name << " : public Serializable";
+	stream << "class " << this->name << " : ";
 	if (this->base_classes.size() > 0){
-		for (auto &base : this->base_classes)
-			stream << ", public " << base->name;
-	}
+		bool first = true;
+		for (auto &base : this->base_classes){
+			if (!first)
+				stream << ", ";
+			else
+				first = false;
+			stream << "public " << base->name;
+		}
+	}else
+		stream << "public Serializable";
 	stream << "{\n";
 	for (auto &el : this->elements)
 		stream << "" << el << (el->needs_semicolon() ? ";\n" : "\n");
@@ -99,11 +106,37 @@ void UserClass::generate_header(std::ostream &stream) const{
 		"";
 	stream <<
 		this->name << "(DeserializationStream &);\n"
-		"ObjectNode get_object_node() override;\n"
-		"void get_object_node(std::vector<ObjectNode> &);\n"
-		"void serialize(SerializerStream &) const override;\n"
-		"TypeId get_type_id() const override;\n"
+		"virtual ~" << this->name << "();\n"
+		"virtual ObjectNode get_object_node() override;\n"
+		"virtual void get_object_node(std::vector<ObjectNode> &);\n"
+		"virtual void serialize(SerializerStream &) const override;\n"
+		"virtual TypeId get_type_id() const override;\n"
 		"};\n";
+}
+
+template <typename T>
+size_t string_length(const T *str){
+	size_t ret = 0;
+	for (; str[ret]; ret++);
+	return ret;
+}
+
+template <typename T>
+size_t string_length(const std::basic_string<T> &str){
+	return str.size();
+}
+
+template <typename T, typename T2, typename T3>
+std::basic_string<T> replace_all(std::basic_string<T> s, const T2 &search, const T3 &replacement){
+	size_t pos = 0;
+	auto length = string_length(search);
+	while ((pos = s.find(search)) != s.npos){
+		auto s2 = s.substr(0, pos);
+		s2 += replacement;
+		s2 += s.substr(pos + length);
+		s = s2;
+	}
+	return s;
 }
 
 void UserClass::generate_get_object_node2(std::ostream &stream) const{
@@ -113,7 +146,8 @@ void UserClass::generate_get_object_node2(std::ostream &stream) const{
 	auto callback = [&stream](const std::string &s, CallMode mode){
 		std::string addend;
 		if (mode != CallMode::AddVerbatim){
-			addend = (boost::format("v.push_back(get_object_node(%1%));\n") % s).str();
+			auto replaced = replace_all(s, "(*this).", "this->");
+			addend = (boost::format("v.push_back(get_object_node(%1%));\n") % replaced).str();
 			if (mode == CallMode::TransformAndReturn)
 				return addend;
 		}else
@@ -136,6 +170,15 @@ void UserClass::generate_pointer_enumerator(generate_pointer_enumerator_callback
 }
 
 void UserClass::generate_serialize(std::ostream &stream) const{
+	for (auto &b : this->base_classes)
+		stream << b->get_name() << "::serialize(ss);\n";
+	
+	for (auto &e : this->elements){
+		auto casted = std::dynamic_pointer_cast<ClassMember>(e);
+		if (!casted)
+			continue;
+		stream << "ss.serialize(this->" << casted->get_name() << ");\n";
+	}
 }
 
 void UserClass::generate_source(std::ostream &stream) const{
@@ -149,6 +192,7 @@ void UserClass::generate_source(std::ostream &stream) const{
 		"}\n"
 		"\n"
 		"void " << this->name << "::serialize(SerializerStream &ss) const{\n";
+	this->generate_serialize(stream);
 	stream <<
 		"}\n"
 		"\n"

@@ -60,12 +60,13 @@ struct floating_point_mapping<long double>{
 
 class SerializerStream{
 	typedef unsigned objectid_t;
+	static const objectid_t null_oid = 0;
 	objectid_t next_object_id;
 	std::unordered_map<uintptr_t, objectid_t> id_map;
 	std::map<objectid_t, ObjectNode> node_map;
 	std::ostream *stream;
 
-	objectid_t get_oid();
+	objectid_t get_new_oid();
 	objectid_t save_object(const void *p);
 public:
 	SerializerStream(std::ostream &);
@@ -76,13 +77,19 @@ public:
 			abort();
 		this->serialize(it->second);
 	}
-	/*
-	void serialize(const Serializable *t){
-		//t->get_object_node()
+	template <typename T>
+	void serialize(const T *t){
+		this->serialize_id(t);
 	}
-	void serialize(const std::shared_ptr<Serializable> &t){
+	template <typename T>
+	void serialize(const std::shared_ptr<T> &t){
+		this->serialize_id(t.get());
 	}
-	*/
+	template <typename T, size_t N>
+	void serialize(const (&array)[N]){
+		for (const auto &e : array)
+			this->serialize(e);
+	}
 	void serialize(std::uint8_t c){
 		this->stream->write((const char *)&c, 1);
 	}

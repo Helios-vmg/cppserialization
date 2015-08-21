@@ -1,5 +1,23 @@
 #include "SerializerStream.h"
 
+SerializerStream::SerializerStream(std::ostream &stream):
+		stream(&stream),
+		next_object_id(1){
+}
+
+objectid_t SerializerStream::get_new_oid(){
+	return this->next_object_id++;
+}
+
+objectid_t SerializerStream::save_object(const void *p){
+	auto it = this->id_map.find(p);
+	if (it != this->id_map.end())
+		return null_oid;
+	auto ret = this->get_new_oid();
+	this->id_map[p] = ret;
+	return ret;
+}
+
 void SerializerStream::begin_serialization(const Serializable &obj){
 	auto node = obj.get_object_node();
 	std::stack<decltype(node)> stack;
