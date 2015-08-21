@@ -44,5 +44,8 @@
     <ClInclude Include="$(SolutionDir)\postsrc\Serializable.h">
       <Filter>Header Files\postsrc</Filter>
     </ClInclude>
+    <ClInclude Include="$(SolutionDir)\src\util.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

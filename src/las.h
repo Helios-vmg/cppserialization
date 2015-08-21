@@ -4,12 +4,21 @@
 #include <vector>
 #include <set>
 #include <unordered_map>
+#include <functional>
+#include <cstdint>
 
 class CppElement{
 public:
 	virtual ~CppElement(){}
 	virtual std::ostream &output(std::ostream &) const = 0;
 };
+
+enum class CallMode{
+	TransformAndAdd,
+	TransformAndReturn,
+	AddVerbatim,
+};
+typedef const std::function<std::string (const std::string &, CallMode)> generate_pointer_enumerator_callback_t;
 
 class Type{
 public:
@@ -26,6 +35,10 @@ public:
 		auto header = this->header();
 		if (header)
 			set.insert((std::string)header);
+	}
+	virtual void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{}
+	virtual std::uint32_t get_type_id() const{
+		return 0;
 	}
 };
 
@@ -150,6 +163,7 @@ public:
 	std::ostream &output(std::ostream &stream, const std::string &name) const override{
 		return stream << this->inner << " " << name << "[" << this->length << "]";
 	}
+	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
 };
 
 class PointerType : public NestedType{
@@ -158,6 +172,7 @@ public:
 	virtual std::ostream &output(std::ostream &stream) const override{
 		return stream << this->inner << " *";
 	}
+	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
 };
 
 class SharedPtrType : public NestedType{
@@ -169,11 +184,18 @@ public:
 	const char *header() const override{
 		return "<memory>";
 	}
+	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
 };
 
-class VectorType : public NestedType{
+class SequenceType : public NestedType{
 public:
-	VectorType(const std::shared_ptr<Type> &inner): NestedType(inner){}
+	SequenceType(const std::shared_ptr<Type> &inner): NestedType(inner){}
+	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
+};
+
+class VectorType : public SequenceType{
+public:
+	VectorType(const std::shared_ptr<Type> &inner): SequenceType(inner){}
 	std::ostream &output(std::ostream &stream) const override{
 		return stream << "std::vector<" << this->inner << ">";
 	}
@@ -182,9 +204,9 @@ public:
 	}
 };
 
-class ListType : public NestedType{
+class ListType : public SequenceType{
 public:
-	ListType(const std::shared_ptr<Type> &inner): NestedType(inner){}
+	ListType(const std::shared_ptr<Type> &inner): SequenceType(inner){}
 	std::ostream &output(std::ostream &stream) const override{
 		return stream << "std::list<" << this->inner << ">";
 	}
@@ -193,9 +215,9 @@ public:
 	}
 };
 
-class SetType : public NestedType{
+class SetType : public SequenceType{
 public:
-	SetType(const std::shared_ptr<Type> &inner): NestedType(inner){}
+	SetType(const std::shared_ptr<Type> &inner): SequenceType(inner){}
 	std::ostream &output(std::ostream &stream) const override{
 		return stream << "std::set<" << this->inner << ">";
 	}
@@ -204,9 +226,9 @@ public:
 	}
 };
 
-class HashSetType : public NestedType{
+class HashSetType : public SequenceType{
 public:
-	HashSetType(const std::shared_ptr<Type> &inner): NestedType(inner){}
+	HashSetType(const std::shared_ptr<Type> &inner): SequenceType(inner){}
 	std::ostream &output(std::ostream &stream) const override{
 		return stream << "std::unordered_set<" << this->inner << ">";
 	}
@@ -226,10 +248,17 @@ public:
 	virtual ~PairType(){}
 };
 
-class MapType : public PairType{
+class AssociativeArrayType : public PairType{
+public:
+	AssociativeArrayType(const std::shared_ptr<Type> &first, const std::shared_ptr<Type> &second):
+		PairType(first, second){}
+	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
+};
+
+class MapType : public AssociativeArrayType{
 public:
 	MapType(const std::shared_ptr<Type> &first, const std::shared_ptr<Type> &second):
-		PairType(first, second){}
+		AssociativeArrayType(first, second){}
 	std::ostream &output(std::ostream &stream) const override{
 		return stream << "std::map<" << this->first << ", " << this->second << ">";
 	}
@@ -238,10 +267,10 @@ public:
 	}
 };
 
-class HashMapType : public PairType{
+class HashMapType : public AssociativeArrayType{
 public:
 	HashMapType(const std::shared_ptr<Type> &first, const std::shared_ptr<Type> &second):
-		PairType(first, second){}
+		AssociativeArrayType(first, second){}
 	std::ostream &output(std::ostream &stream) const override{
 		return stream << "std::unordered_map<" << this->first << ", " << this->second << ">";
 	}
@@ -263,6 +292,12 @@ public:
 	}
 	virtual void add_headers(std::set<std::string> &set) const{
 		this->type->add_headers(set);
+	}
+	std::shared_ptr<const Type> get_type() const{
+		return this->type;
+	}
+	std::string get_name() const{
+		return this->name;
 	}
 };
 
@@ -372,6 +407,10 @@ public:
 	const std::string &get_name() const{
 		return this->name;
 	}
+	void generate_get_object_node(std::ostream &) const;
+	void generate_get_object_node2(std::ostream &) const;
+	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
+	void generate_serialize(std::ostream &) const;
 };
 
 class CppFile{

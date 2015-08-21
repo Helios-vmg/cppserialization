@@ -1,5 +1,6 @@
 #include "las.h"
 #include "tinyxml2/tinyxml2.h"
+#include "util.h"
 #include <unordered_map>
 #include <sstream>
 #include <functional>
@@ -60,12 +61,6 @@ std::shared_ptr<Type> create_pointer_type(const XMLElement *parent){
 		return make_shared(new PointerType(it->second(el)));
 	}
 	return nullptr;
-}
-
-std::string utoa(unsigned n){
-	std::stringstream stream;
-	stream << n;
-	return stream.str();
 }
 
 struct init_maps{
@@ -186,31 +181,7 @@ std::vector<std::shared_ptr<CppFile> > iterate_document(const XMLDocument &doc){
 	return ret;
 }
 
-#include <cstdint>
-#include <type_traits>
-
-void f(std::uint8_t c){
-	std::cout << "void f(std::uint8_t c);\n";
-}
-
-void f(std::int8_t c){
-	std::cout << "void f(std::int8_t c);\n";
-}
-
-template <typename T>
-typename std::enable_if<std::is_signed<T>::value, void>::type f(T z){
-	std::cout << "template <typename T> void serialize(std::enable_if<std::is_signed<T>::value, T>::type z);\n";
-}
-
-template <typename T>
-typename std::enable_if<std::is_unsigned<T>::value, void>::type f(T n){
-	std::cout << "template <typename T> void serialize(std::enable_if<std::is_unsigned<T>::value, T>::type z);\n";
-}
-
 int main(int argc, char **argv){
-	f(0U);
-	return 0;
-
 	if (argc < 2)
 		return -1;
 	XMLDocument doc;
