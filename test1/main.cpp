@@ -12,5 +12,5 @@ int main(){
 
 	std::ofstream file("test.bin", std::ios::binary);
 	SerializerStream ss(file);
-	ss.begin_serialization(a[0]);
+	ss.begin_serialization(a[0], true);
 }

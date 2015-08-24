@@ -72,7 +72,7 @@ class SerializerStream{
 	objectid_t save_object(const void *p);
 public:
 	SerializerStream(std::ostream &);
-	void begin_serialization(const Serializable &obj);
+	void begin_serialization(const Serializable &obj, bool include_typehashes = false);
 	void serialize_id(const void *p){
 		auto it = this->id_map.find((uintptr_t)p);
 		if (it == this->id_map.end())
@@ -86,6 +86,10 @@ public:
 	template <typename T>
 	void serialize(const std::shared_ptr<T> &t){
 		this->serialize_id(t.get());
+	}
+	template <typename T, size_t N>
+	void serialize_array(const T (&array)[N]){
+		this->serialize<T, N>(array);
 	}
 	template <typename T, size_t N>
 	void serialize(const T (&array)[N]){
@@ -144,7 +148,7 @@ public:
 	template <typename T>
 	void serialize(const std::basic_string<T> &s){
 		this->serialize(s.size());
-		for (auto c : s)
+		for (typename std::make_unsigned<T>::type c : s)
 			this->serialize(c);
 	}
 	template <typename It>

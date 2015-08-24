@@ -20,7 +20,7 @@ SerializerStream::objectid_t SerializerStream::save_object(const void *p){
 	return ret;
 }
 
-void SerializerStream::begin_serialization(const Serializable &obj){
+void SerializerStream::begin_serialization(const Serializable &obj, bool include_typehashes){
 	auto node = obj.get_object_node();
 	std::stack<decltype(node)> stack;
 	stack.push(node);
@@ -34,6 +34,14 @@ void SerializerStream::begin_serialization(const Serializable &obj){
 		while (it.next())
 			stack.push(*it);
 		this->node_map[id] = top;
+	}
+	if (include_typehashes){
+		size_t length;
+		auto list = obj.get_type_hashes_list(length);
+		while (length--){
+			this->serialize(list[length].first);
+			this->serialize_array(list[length].second.digest);
+		}
 	}
 	for (auto &n : this->node_map){
 		this->serialize(n.first);

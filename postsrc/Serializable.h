@@ -3,6 +3,7 @@
 
 #include "serialization_utils.h"
 #include "SerializerStream.h"
+#include <utility>
 
 class SerializerStream;
 class DeserializerStream;
@@ -46,6 +47,7 @@ public:
 	static void construct_memory(std::uint32_t, Serializable *, DeserializerStream &);
 	virtual std::uint32_t get_type_id() const = 0;
 	virtual TypeHash get_type_hash() const = 0;
+	virtual const std::pair<std::uint32_t, TypeHash> *get_type_hashes_list(size_t &length) const = 0;
 };
 
 inline ObjectNode get_object_node(const Serializable *serializable){

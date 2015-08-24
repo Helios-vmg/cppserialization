@@ -136,6 +136,7 @@ void UserClass::generate_header(std::ostream &stream) const{
 		"virtual void serialize(SerializerStream &) const override;\n"
 		"virtual std::uint32_t get_type_id() const override;\n"
 		"virtual TypeHash get_type_hash() const override;\n"
+		"virtual const std::pair<std::uint32_t, TypeHash> *get_type_hashes_list(size_t &length) const override;\n"
 		"}};\n";
 	stream << (std::string)(variable_formatter(format) << "name" << this->name);
 }
@@ -231,6 +232,10 @@ void UserClass::generate_source(std::ostream &stream) const{
 		"\n"
 		"TypeHash {name}::get_type_hash() const{{\n"
 		"{gth}"
+		"}}\n"
+		"\n"
+		"const std::pair<std::uint32_t, TypeHash> *{name}::get_type_hashes_list(size_t &length) const{{\n"
+		"    return ::get_type_hashes_list(length);"
 		"}}\n";
 	variable_formatter vf = format;
 	vf
@@ -343,6 +348,15 @@ void CppFile::generate_source(){
 
 	std::ofstream file((this->get_name() + ".generated.cpp").c_str());
 	file << "#include \"" << this->get_name() << ".generated.h\"\n"
+		"#include <utility>\n"
+		"\n"
+		"extern std::pair<std::uint32_t, TypeHash> " << this->get_name() << "_id_hashes[];\n"
+		"extern size_t " << this->get_name() << "_id_hashes_length;\n"
+		"\n"
+		"static std::pair<std::uint32_t, TypeHash> *get_type_hashes_list(size_t &l){\n"
+			"l = " << this->get_name() << "_id_hashes_length;\n"
+			"return " << this->get_name() << "_id_hashes;\n"
+		"}\n"
 		"\n";
 
 	for (auto &e : this->elements){
@@ -364,11 +378,11 @@ void CppFile::generate_aux(){
 		"#include <utility>\n"
 		"#include <cstdint>\n"
 		"\n"
-		"std::pair<std::uint32_t, TypeHash> id_hashes[] = {\n";
+		"std::pair<std::uint32_t, TypeHash> " << this->get_name() << "_id_hashes[] = {\n";
 
 	for (auto &i : this->type_map.left)
 		file << "{ " << i.second << ", TypeHash(" << i.first.to_string() << ")},\n";
 
-	file << "};\n";
-
+	file << "};\n"
+		"size_t " << this->get_name() << "_id_hashes_length = " << this->type_map.left.size() << ";\n";
 }
