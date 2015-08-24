@@ -84,15 +84,15 @@ void iterate_class(
 		std::shared_ptr<UserClass> Class,
 		const std::unordered_map<std::string, std::shared_ptr<UserClass> > &classes,
 		const XMLElement *parent,
-		Accesibility default_accessibility){
+		Accessibility default_accessibility){
 	for (auto el = parent->FirstChildElement(); el; el = el->NextSiblingElement()){
 		auto name = (std::string)el->Name();
 		if (name == "public")
-			default_accessibility = Accesibility::Public;
+			default_accessibility = Accessibility::Public;
 		else if (name == "protected")
-			default_accessibility = Accesibility::Protected;
+			default_accessibility = Accessibility::Protected;
 		else if (name == "private")
-			default_accessibility = Accesibility::Private;
+			default_accessibility = Accessibility::Private;
 		else if (name == "include"){
 			auto header = el->Attribute("header");
 			if (!header)
@@ -147,7 +147,7 @@ void iterate_cpp(CppFile &cpp, const XMLElement *parent){
 			auto Class = make_shared(new UserClass(name));
 			callback_map[name] = [Class](const XMLElement *){ return Class; };
 			cpp_element = Class;
-			iterate_class(Class, cpp.get_classes(), el, Accesibility::Public);
+			iterate_class(Class, cpp.get_classes(), el, Accessibility::Public);
 		}else if (!strcmp(name, "class")){
 			name = el->Attribute("name");
 			if (!name)
@@ -156,7 +156,7 @@ void iterate_cpp(CppFile &cpp, const XMLElement *parent){
 			auto Class = make_shared(new UserClass(name));
 			callback_map[name] = [Class](const XMLElement *){ return Class; };
 			cpp_element = Class;
-			iterate_class(Class, cpp.get_classes(), el, Accesibility::Private);
+			iterate_class(Class, cpp.get_classes(), el, Accessibility::Private);
 		}
 		if (cpp_element)
 			cpp.add_element(cpp_element);
@@ -190,5 +190,6 @@ int main(int argc, char **argv){
 	for (auto &cpp : cpps){
 		cpp->generate_header();
 		cpp->generate_source();
+		cpp->generate_aux();
 	}
 }

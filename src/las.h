@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -6,6 +7,9 @@
 #include <unordered_map>
 #include <functional>
 #include <cstdint>
+#include <boost/bimap.hpp>
+#include <boost/bimap/set_of.hpp>
+#include "typehash.h"
 
 class CppElement{
 public:
@@ -21,6 +25,13 @@ enum class CallMode{
 typedef const std::function<std::string (const std::string &, CallMode)> generate_pointer_enumerator_callback_t;
 
 class Type{
+	std::uint32_t type_id;
+	std::unique_ptr<TypeHash> type_hash;
+protected:
+	typedef const std::function<void(Type &, std::uint32_t &)> iterate_callback_t;
+	virtual void iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited){
+		callback(*this, this->type_id);
+	}
 public:
 	virtual ~Type(){}
 	virtual std::ostream &output(std::ostream &stream) const = 0;
@@ -37,8 +48,30 @@ public:
 			set.insert((std::string)header);
 	}
 	virtual void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{}
-	virtual std::uint32_t get_type_id() const{
-		return 0;
+	std::uint32_t get_type_id() const{
+		return this->type_id;
+	}
+	virtual std::string get_type_string() const = 0;
+	const TypeHash &get_type_hash(){
+		if (!this->type_hash)
+			this->type_hash.reset(new TypeHash(this->get_type_string()));
+		return *this->type_hash;
+	}
+	const TypeHash &get_type_hash() const{
+		if (!this->type_hash)
+			abort();
+		return *this->type_hash;
+	}
+	void iterate(iterate_callback_t &callback){
+		std::set<Type *> visited;
+		this->iterate(callback, visited);
+	}
+	void iterate(iterate_callback_t &callback, std::set<Type *> &visited){
+		auto it = visited.find(this);
+		if (it != visited.end())
+			return;
+		visited.insert(this);
+		this->iterate_internal(callback, visited);
 	}
 };
 
@@ -73,6 +106,9 @@ class BoolType : public Type{
 public:
 	std::ostream &output(std::ostream &stream) const override{
 		return stream << "bool";
+	}
+	std::string get_type_string() const override{
+		return "b";
 	}
 };
 
@@ -118,6 +154,7 @@ public:
 	const char *header() const override{
 		return "<cstdint>";
 	}
+	std::string get_type_string() const override;
 };
 
 class StringType : public Type{
@@ -130,6 +167,9 @@ public:
 	const char *header() const override{
 		return "<string>";
 	}
+	std::string get_type_string() const override{
+		return this->wide ? "wstr" : "str";
+	}
 };
 
 class DatetimeTime : public Type{
@@ -137,11 +177,18 @@ public:
 	std::ostream &output(std::ostream &stream) const override{
 		return stream << "boost::datetime";
 	}
+	std::string get_type_string() const override{
+		return "datetime";
+	}
 };
 
 class NestedType : public Type{
 protected:
 	std::shared_ptr<Type> inner;
+	virtual void iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited) override{
+		this->inner->iterate(callback, visited);
+		Type::iterate_internal(callback, visited);
+	}
 public:
 	NestedType(const std::shared_ptr<Type> &inner): inner(inner){}
 	virtual ~NestedType(){}
@@ -164,6 +211,7 @@ public:
 		return stream << this->inner << " " << name << "[" << this->length << "]";
 	}
 	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
+	std::string get_type_string() const override;
 };
 
 class PointerType : public NestedType{
@@ -173,6 +221,9 @@ public:
 		return stream << this->inner << " *";
 	}
 	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
+	std::string get_type_string() const override{
+		return this->inner->get_type_string() + "*";
+	}
 };
 
 class SharedPtrType : public NestedType{
@@ -185,6 +236,9 @@ public:
 		return "<memory>";
 	}
 	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
+	std::string get_type_string() const override{
+		return "shared_ptr<" + this->inner->get_type_string() + ">";
+	}
 };
 
 class SequenceType : public NestedType{
@@ -202,6 +256,9 @@ public:
 	const char *header() const override{
 		return "<vector>";
 	}
+	std::string get_type_string() const override{
+		return "vector<" + this->inner->get_type_string() + ">";
+	}
 };
 
 class ListType : public SequenceType{
@@ -212,6 +269,9 @@ public:
 	}
 	const char *header() const override{
 		return "<list>";
+	}
+	std::string get_type_string() const override{
+		return "list<" + this->inner->get_type_string() + ">";
 	}
 };
 
@@ -224,6 +284,9 @@ public:
 	const char *header() const override{
 		return "<set>";
 	}
+	std::string get_type_string() const override{
+		return "set<" + this->inner->get_type_string() + ">";
+	}
 };
 
 class HashSetType : public SequenceType{
@@ -235,12 +298,20 @@ public:
 	const char *header() const override{
 		return "<unordered_set>";
 	}
+	std::string get_type_string() const override{
+		return "unordered_set<" + this->inner->get_type_string() + ">";
+	}
 };
 
 class PairType : public Type{
 protected:
 	std::shared_ptr<Type> first,
 		second;
+	virtual void iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited) override{
+		this->first->iterate(callback, visited);
+		this->second->iterate(callback, visited);
+		Type::iterate_internal(callback, visited);
+	}
 public:
 	PairType(const std::shared_ptr<Type> &first, const std::shared_ptr<Type> &second):
 		first(first),
@@ -265,6 +336,9 @@ public:
 	const char *header() const override{
 		return "<map>";
 	}
+	std::string get_type_string() const override{
+		return "map<" + this->first->get_type_string() + "," + this->second->get_type_string() + ">";
+	}
 };
 
 class HashMapType : public AssociativeArrayType{
@@ -276,6 +350,9 @@ public:
 	}
 	const char *header() const override{
 		return "<unordered_map>";
+	}
+	std::string get_type_string() const override{
+		return "unordered_map<" + this->first->get_type_string() + "," + this->second->get_type_string() + ">";
 	}
 };
 
@@ -294,6 +371,9 @@ public:
 		this->type->add_headers(set);
 	}
 	std::shared_ptr<const Type> get_type() const{
+		return this->type;
+	}
+	std::shared_ptr<Type> get_type(){
 		return this->type;
 	}
 	std::string get_name() const{
@@ -329,19 +409,19 @@ inline std::ostream &operator<<(std::ostream &stream, std::shared_ptr<CppElement
 }
 #endif
 
-enum class Accesibility{
-	Public,
-	Protected,
-	Private,
+enum class Accessibility{
+	Public = 0,
+	Protected = 1,
+	Private = 2,
 };
 
-inline const char *to_string(Accesibility a){
+inline const char *to_string(Accessibility a){
 	switch (a){
-		case Accesibility::Public:
+		case Accessibility::Public:
 			return "public";
-		case Accesibility::Protected:
+		case Accessibility::Protected:
 			return "protected";
-		case Accesibility::Private:
+		case Accessibility::Private:
 			return "private";
 	}
 	return "";
@@ -371,14 +451,17 @@ inline std::ostream &operator<<(std::ostream &stream, std::shared_ptr<ClassEleme
 #endif
 
 class ClassMember : public Object, public ClassElement{
-	Accesibility accesibility;
+	Accessibility accessibility;
 public:
-	ClassMember(const std::shared_ptr<Type> &type, const std::string &name, Accesibility accesibility):
+	ClassMember(const std::shared_ptr<Type> &type, const std::string &name, Accessibility accessibility):
 		Object(type, name),
-		accesibility(accesibility){}
+		accessibility(accessibility){}
 	std::ostream &output(std::ostream &stream) const override{
-		stream << to_string(this->accesibility) << ": ";
+		stream << to_string(this->accessibility) << ": ";
 		return Object::output(stream);
+	}
+	Accessibility get_accessibility() const{
+		return this->accessibility;
 	}
 };
 
@@ -388,6 +471,8 @@ class UserClass : public Type, public CppElement{
 	std::string name;
 	bool adding_headers;
 	static unsigned next_type_id;
+protected:
+	virtual void iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited) override;
 public:
 	UserClass(const std::string &name):
 		adding_headers(false),
@@ -410,12 +495,29 @@ public:
 	void generate_get_object_node2(std::ostream &) const;
 	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
 	void generate_serialize(std::ostream &) const;
+	std::string get_type_string() const override{
+		return this->name;
+	}
+	std::string base_get_type_string() const;
+	void generate_get_type_hash(std::ostream &) const;
+#define DEFINE_GENERATE_OVERLOAD(x) \
+	std::string x() const{          \
+		std::stringstream stream;   \
+		this->x(stream);            \
+		return stream.str();        \
+	}
+	DEFINE_GENERATE_OVERLOAD(generate_get_object_node2)
+	DEFINE_GENERATE_OVERLOAD(generate_serialize)
+	DEFINE_GENERATE_OVERLOAD(generate_get_type_hash)
 };
 
 class CppFile{
 	std::string name;
 	std::vector<std::shared_ptr<CppElement> > elements;
 	std::unordered_map<std::string, std::shared_ptr<UserClass> > classes;
+	typedef boost::bimap<boost::bimaps::set_of<TypeHash>, boost::bimaps::set_of<unsigned>> type_map_t;
+	type_map_t type_map;
+	void assign_type_ids();
 public:
 	CppFile(const std::string &name): name(name){}
 	void add_element(const std::shared_ptr<CppElement> &element){
@@ -432,6 +534,7 @@ public:
 	}
 	void generate_header();
 	void generate_source();
+	void generate_aux();
 };
 
 class UserInclude : public CppElement, public ClassElement{

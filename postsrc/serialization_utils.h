@@ -8,6 +8,12 @@
 #include <type_traits>
 #include <limits>
 #include <iostream>
+#include <cstdint>
+#include <list>
+#include <set>
+#include <unordered_set>
+#include <map>
+#include <unordered_map>
 
 class SerializerStream;
 
@@ -15,6 +21,16 @@ template <typename T>
 std::shared_ptr<T> make_shared(T *p){
 	return std::shared_ptr<T>(p);
 }
+
+class NodeIterator;
+
+struct ObjectNode{
+	const void *address;
+	std::function<NodeIterator()> get_children;
+	typedef std::function<void (SerializerStream &)> serialize_t;
+	serialize_t serialize;
+	std::function<std::uint32_t()> get_typeid;
+};
 
 class NodeIterator{
 	std::shared_ptr<std::vector<ObjectNode>> nodes;
@@ -40,14 +56,6 @@ public:
 	ObjectNode *operator->(){
 		return &(*this->nodes)[this->state];
 	}
-};
-
-struct ObjectNode{
-	const void *address;
-	std::function<NodeIterator()> get_children;
-	typedef std::function<void (SerializerStream &)> serialize_t;
-	serialize_t serialize;
-	std::function<std::uint32_t()> get_typeid;
 };
 
 template <typename T>
@@ -187,23 +195,19 @@ ObjectNode get_object_node_assoc(T *p){
 	};
 }
 
-template <typename T>
-ObjectNode get_object_node(std::map<T> *p){
+template <typename T1, typename T2>
+ObjectNode get_object_node(std::map<T1, T2> *p){
 	return get_object_node_assoc(p);
 }
 
-template <typename T>
-ObjectNode get_object_node(std::unordered_map<T> *p){
+template <typename T1, typename T2>
+ObjectNode get_object_node(std::unordered_map<T1, T2> *p){
 	return get_object_node_assoc(p);
 }
 
 template <typename T>
 ObjectNode get_object_node(const std::shared_ptr<T> &n){
 	return get_object_node(n.get());
-}
-
-inline ObjectNode get_object_node(const Serializable *serializable){
-	return serializable->get_object_node();
 }
 
 #endif

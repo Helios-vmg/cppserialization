@@ -1,20 +1,22 @@
 #include "SerializerStream.h"
+#include "Serializable.h"
 
 SerializerStream::SerializerStream(std::ostream &stream):
 		stream(&stream),
 		next_object_id(1){
 }
 
-objectid_t SerializerStream::get_new_oid(){
+SerializerStream::objectid_t SerializerStream::get_new_oid(){
 	return this->next_object_id++;
 }
 
-objectid_t SerializerStream::save_object(const void *p){
-	auto it = this->id_map.find(p);
+SerializerStream::objectid_t SerializerStream::save_object(const void *p){
+	auto up = (uintptr_t)p;
+	auto it = this->id_map.find(up);
 	if (it != this->id_map.end())
 		return null_oid;
 	auto ret = this->get_new_oid();
-	this->id_map[p] = ret;
+	this->id_map[up] = ret;
 	return ret;
 }
 

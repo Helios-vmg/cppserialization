@@ -4,9 +4,23 @@
 #include <sstream>
 #include <array>
 #include <boost/format.hpp>
+#include "variable_formatter.h"
+#include "typehash.h"
+
+std::string IntegerType::get_type_string() const{
+	std::stringstream stream;
+	stream << (this->signedness ? 's' : 'u') << (8 << this->size);
+	return stream.str();
+}
+
+std::string ArrayType::get_type_string() const{
+	std::stringstream stream;
+	stream << this->inner->get_type_string() << '[' << this->length << ']';
+	return stream.str();
+}
 
 template <typename T>
-void generate_for_collection(boost::format &format, const std::string &next_name, const std::initializer_list<T> &list, generate_pointer_enumerator_callback_t &callback){
+void generate_for_collection(variable_formatter &format, const std::string &next_name, const std::initializer_list<T> &list, generate_pointer_enumerator_callback_t &callback){
 	bool any = false;
 	std::string accum;
 	auto subcallback = [&any, &accum, &callback](const std::string &input, CallMode mode) -> std::string{
@@ -26,15 +40,19 @@ void generate_for_collection(boost::format &format, const std::string &next_name
 	for (auto &i : list)
 		i->generate_pointer_enumerator(subcallback, next_name);
 	if (any)
-		callback((format % accum).str(), CallMode::AddVerbatim);
+		callback(format << "contents" << accum, CallMode::AddVerbatim);
 }
 
 void ArrayType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
-	boost::format format("for (size_t %1% = 0; %1% != %2%; %1%++){ %3% }");
+	static const char *format = 
+		"for (size_t {index} = 0; {index} != {length}; {index}++){{"
+			"{contents}"
+		"}}";
+	variable_formatter vf(format);
 	auto index = get_unique_varname();
-	format = format % index % this->length;
-	std::string next_name = (boost::format("(%1%)[%2%]") % this_name % index).str();
-	generate_for_collection(format, next_name, { this->inner }, callback);
+	vf << "index" << index << "length" << this->length;
+	std::string next_name = variable_formatter("({name})[{index}]") << "name" << this_name << "index" << index;
+	generate_for_collection(vf, next_name, { this->inner }, callback);
 }
 
 void PointerType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
@@ -46,17 +64,25 @@ void SharedPtrType::generate_pointer_enumerator(generate_pointer_enumerator_call
 }
 
 void SequenceType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
-	boost::format format("for (const auto &%1% : (%2%)){ %3% }");
+	static const char *format = 
+		"for (const auto &{index} : {name}){{"
+			"{contents}"
+		"}}";
+	variable_formatter vf(format);
 	auto index = get_unique_varname();
-	format = format % index % this_name;
-	generate_for_collection(format, index, { this->inner }, callback);
+	vf << "index" << index << "name" << this_name;
+	generate_for_collection(vf, index, { this->inner }, callback);
 }
 
 void AssociativeArrayType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
-	boost::format format("for (const auto &%1% : (%2%)){ %3% }");
+	static const char *format = 
+		"for (const auto &{index} : {name}){{"
+			"{contents}"
+		"}}";
+	variable_formatter vf(format);
 	auto index = get_unique_varname();
-	format = format % index % this_name;
-	generate_for_collection(format, index, { this->first, this->second }, callback);
+	vf << "index" << index << "name" << this_name;
+	generate_for_collection(vf, index, { this->first, this->second }, callback);
 }
 
 unsigned UserClass::next_type_id = 0;
@@ -101,17 +127,17 @@ void UserClass::generate_header(std::ostream &stream) const{
 	stream << "{\n";
 	for (auto &el : this->elements)
 		stream << "" << el << (el->needs_semicolon() ? ";\n" : "\n");
-	stream <<
+
+	static const char *format =
 		"public:\n"
-		"";
-	stream <<
-		this->name << "(DeserializationStream &);\n"
-		"virtual ~" << this->name << "();\n"
-		"virtual ObjectNode get_object_node() override;\n"
-		"virtual void get_object_node(std::vector<ObjectNode> &);\n"
+		"{name}(DeserializerStream &);\n"
+		"virtual ~{name}();\n"
+		"virtual void get_object_node(std::vector<ObjectNode> &) const override;\n"
 		"virtual void serialize(SerializerStream &) const override;\n"
-		"virtual TypeId get_type_id() const override;\n"
-		"};\n";
+		"virtual std::uint32_t get_type_id() const override;\n"
+		"virtual TypeHash get_type_hash() const override;\n"
+		"}};\n";
+	stream << (std::string)(variable_formatter(format) << "name" << this->name);
 }
 
 template <typename T>
@@ -147,7 +173,7 @@ void UserClass::generate_get_object_node2(std::ostream &stream) const{
 		std::string addend;
 		if (mode != CallMode::AddVerbatim){
 			auto replaced = replace_all(s, "(*this).", "this->");
-			addend = (boost::format("v.push_back(get_object_node(%1%));\n") % replaced).str();
+			addend = variable_formatter("v.push_back(::get_object_node({0}));\n") << "0" << replaced;
 			if (mode == CallMode::TransformAndReturn)
 				return addend;
 		}else
@@ -181,33 +207,115 @@ void UserClass::generate_serialize(std::ostream &stream) const{
 	}
 }
 
+void UserClass::generate_get_type_hash(std::ostream &stream) const{
+	stream << "return TypeHash(" << this->get_type_hash().to_string() << ");";
+}
+
 void UserClass::generate_source(std::ostream &stream) const{
-	stream << this->name << "::" << this->name << "(DeserializationStream &ds){\n";
-	stream <<
-		"}\n"
+	static const char *format =
+		"{name}::{name}(DeserializerStream &ds){{\n"
+		"{ctor}"
+		"}}\n"
 		"\n"
-		"void " << this->name << "::get_object_node(std::vector<ObjectNode> &v){\n";
-	this->generate_get_object_node2(stream);
-	stream <<
-		"}\n"
+		"void {name}::get_object_node(std::vector<ObjectNode> &v) const{{\n" 
+		"{gon}"
+		"}}\n"
 		"\n"
-		"void " << this->name << "::serialize(SerializerStream &ss) const{\n";
-	this->generate_serialize(stream);
-	stream <<
-		"}\n"
+		"void {name}::serialize(SerializerStream &ss) const{{\n"
+		"{ser}"
+		"}}\n"
 		"\n"
-		"std::uint32_t " << this->name << "::get_type_id() const{\n";
-	stream <<"}\n";
+		"std::uint32_t {name}::get_type_id() const{{\n"
+		"{gti}"
+		"}}\n"
+		"\n"
+		"TypeHash {name}::get_type_hash() const{{\n"
+		"{gth}"
+		"}}\n";
+	variable_formatter vf = format;
+	vf
+		<< "name" << this->name
+		<< "ctor" << ""
+		<< "gon" << this->generate_get_object_node2()
+		<< "ser" << this->generate_serialize()
+		<< "gti" << ("return " + utoa(this->get_type_id()) + ";")
+		<< "gth" << this->generate_get_type_hash();
+	stream << (std::string)vf;
+}
+
+void UserClass::iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited){
+	for (auto &b : this->base_classes)
+		b->iterate(callback, visited);
+	for (auto &e : this->elements){
+		auto casted = std::dynamic_pointer_cast<ClassMember>(e);
+		if (!casted)
+			continue;
+		casted->get_type()->iterate(callback, visited);
+	}
+	Type::iterate_internal(callback, visited);
+}
+
+std::string UserClass::base_get_type_string() const{
+	std::stringstream stream;
+	stream << '{' << this->name;
+	for (auto &b : this->base_classes)
+		stream << ':' << b->base_get_type_string();
+	stream << '(';
+	bool first = true;
+	for (auto &e : this->elements){
+		auto casted = std::dynamic_pointer_cast<ClassMember>(e);
+		if (!casted)
+			continue;
+		if (!first)
+			stream << ',';
+		else
+			first = false;
+		stream << '(' << (int)casted->get_accessibility() << ',' << casted->get_type()->get_type_string() << ',' << casted->get_name() << ')';
+	}
+	stream << ")}";
+	return stream.str();
+}
+
+void CppFile::assign_type_ids(){
+	if (this->type_map.size())
+		return;
+
+	std::uint32_t id = 1;
+
+	auto &type_map = this->type_map;
+	auto callback = [&type_map, &id](Type &t, std::uint32_t &type_id){
+		auto &hash = t.get_type_hash();
+		auto it = type_map.left.find(hash);
+		if (it != type_map.left.end())
+			return;
+		type_id = id;
+		type_map.insert(type_map_t::value_type(hash, id));
+		id++;
+	};
+
+	for (auto &e : this->elements){
+		auto Class = std::dynamic_pointer_cast<UserClass>(e);
+		if (!Class)
+			continue;
+		Class->iterate(callback);
+	}
 }
 
 void CppFile::generate_header(){
+	this->assign_type_ids();
+
 	std::ofstream file((this->get_name() + ".generated.h").c_str());
 	std::set<std::string> includes;
 	for (auto &c : this->classes)
 		c.second->add_headers(includes);
 	for (auto &h : includes)
 		file << "#include " << h << std::endl;
-	file << "#include \"serialization_utils.h\"\n\n";
+	file <<
+		"#include \"serialization_utils.h\"\n"
+		"#include \"Serializable.h\"\n"
+		"#include \"SerializerStream.h\"\n"
+		"#include \"DeserializerStream.h\"\n"
+		"\n";
 
 	for (auto &e : this->elements){
 		auto Class = std::dynamic_pointer_cast<UserClass>(e);
@@ -219,15 +327,20 @@ void CppFile::generate_header(){
 
 	for (auto &e : this->elements){
 		auto Class = std::dynamic_pointer_cast<UserClass>(e);
-		if (Class)
+		if (Class){
 			Class->generate_header(file);
-		else
+			auto ts = Class->base_get_type_string();
+			std::cout << ts << std::endl
+				<< TypeHash(ts).to_string() << std::endl;
+		}else
 			file << e;
 		file << std::endl;
 	}
 }
 
 void CppFile::generate_source(){
+	this->assign_type_ids();
+
 	std::ofstream file((this->get_name() + ".generated.cpp").c_str());
 	file << "#include \"" << this->get_name() << ".generated.h\"\n"
 		"\n";
@@ -239,4 +352,23 @@ void CppFile::generate_source(){
 		Class->generate_source(file);
 		file << std::endl;
 	}
+}
+
+void CppFile::generate_aux(){
+	this->assign_type_ids();
+
+	std::ofstream file((this->get_name() + ".aux.generated.cpp").c_str());
+
+	file <<
+		"#include \"Serializable.h\"\n"
+		"#include <utility>\n"
+		"#include <cstdint>\n"
+		"\n"
+		"std::pair<std::uint32_t, TypeHash> id_hashes[] = {\n";
+
+	for (auto &i : this->type_map.left)
+		file << "{ " << i.second << ", TypeHash(" << i.first.to_string() << ")},\n";
+
+	file << "};\n";
+
 }

@@ -27,6 +27,12 @@
     <ClCompile Include="$(SolutionDir)\src\tinyxml2\tinyxml2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="$(SolutionDir)\src\sha256.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\src\typehash.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(SolutionDir)\src\las.h">
@@ -45,6 +51,15 @@
       <Filter>Header Files\postsrc</Filter>
     </ClInclude>
     <ClInclude Include="$(SolutionDir)\src\util.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="$(SolutionDir)\src\typehash.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="$(SolutionDir)\src\sha256.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="$(SolutionDir)\src\variable_formatter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

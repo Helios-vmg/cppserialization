@@ -1,0 +1,2 @@
+public:
+test_type();

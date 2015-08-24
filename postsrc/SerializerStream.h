@@ -12,8 +12,10 @@
 #include <unordered_map>
 #include <boost/static_assert.hpp>
 #include <stack>
+#include <climits>
 #include "serialization_utils.h"
-#include "Serializable.h"
+
+class Serializable;
 
 template <typename T>
 typename std::make_unsigned<T>::type ints_to_uints(T z){
@@ -86,19 +88,22 @@ public:
 		this->serialize_id(t.get());
 	}
 	template <typename T, size_t N>
-	void serialize(const (&array)[N]){
+	void serialize(const T (&array)[N]){
 		for (const auto &e : array)
 			this->serialize(e);
 	}
 	void serialize(std::uint8_t c){
 		this->stream->write((const char *)&c, 1);
 	}
+	void serialize(bool b){
+		this->serialize((std::uint8_t)b);
+	}
 	void serialize(std::int8_t c){
 		this->stream->write((const char *)&c, 1);
 	}
 	template <typename T>
 	typename std::enable_if<std::is_unsigned<T>::value, void>::type serialize_fixed(T n){
-		BOOST_STATIC_ASSERT(CHAR_BITS == 8);
+		BOOST_STATIC_ASSERT(CHAR_BIT == 8);
 
 		std::uint8_t array[sizeof(n)];
 		for (auto &i : array){
@@ -113,21 +118,22 @@ public:
 	}
 	template <typename T>
 	typename std::enable_if<std::is_unsigned<T>::value, void>::type serialize(T n){
-		BOOST_STATIC_ASSERT(CHAR_BITS == 8);
+		BOOST_STATIC_ASSERT(CHAR_BIT == 8);
 
-		const unsigned shift = sizeof(n) - 7;
+		const unsigned shift = sizeof(n) * 8 - 7;
 
 		const std::uint8_t mask = 0x7F;
 		while (n > mask){
 			std::uint8_t m = n >> shift;
+			n <<= 7;
 			m &= mask;
 			m |= ~mask;
 			this->serialize(m);
 		}
-		this->serialize(n);
+		this->serialize((std::uint8_t)n);
 	}
 	template <typename T>
-	void serialize(std::enable_if<std::is_floating_point<T>::value>::type x){
+	typename std::enable_if<std::is_floating_point<T>::value, void>::type serialize(const T &x){
 		typedef typename floating_point_mapping<T>::type u;
 		u mantissa;
 		int exponent;
@@ -167,12 +173,12 @@ public:
 	void serialize(const std::unordered_set<T> &s){
 		this->serialize_sequence(s.begin(), s.end(), s.size());
 	}
-	template <typename T>
-	void serialize(const std::map<T> &s){
+	template <typename T1, typename T2>
+	void serialize(const std::map<T1, T2> &s){
 		this->serialize_maplike(s.begin(), s.end(), s.size());
 	}
-	template <typename T>
-	void serialize(const std::unordered_map<T> &s){
+	template <typename T1, typename T2>
+	void serialize(const std::unordered_map<T1, T2> &s){
 		this->serialize_maplike(s.begin(), s.end(), s.size());
 	}
 };

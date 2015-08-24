@@ -11,9 +11,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{886936B8-F314-4A7A-915A-C1138AF46B83}</ProjectGuid>
+    <ProjectGuid>{E7A84F5C-3F68-4EF9-9E24-AE88724D98F0}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>LAS</RootNamespace>
+    <RootNamespace>test1</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -52,6 +52,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)\postsrc</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -67,6 +68,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)\postsrc</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -76,22 +78,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="$(SolutionDir)\src\las.cpp" />
-    <ClCompile Include="$(SolutionDir)\src\main.cpp" />
-    <ClCompile Include="$(SolutionDir)\src\tinyxml2\tinyxml2.cpp" />
-    <ClCompile Include="$(SolutionDir)\src\sha256.c" />
-    <ClCompile Include="$(SolutionDir)\src\typehash.cpp" />
+    <ClCompile Include="$(ProjectDir)\testtype.aux.generated.cpp" />
+    <ClCompile Include="$(ProjectDir)\testtype.generated.cpp" />
+    <ClCompile Include="$(SolutionDir)\postsrc\SerializerStream.cpp" />
+    <ClCompile Include="$(ProjectDir)\main.cpp" />
+    <ClCompile Include="$(ProjectDir)\testtype.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="$(SolutionDir)\src\las.h" />
-    <ClInclude Include="$(SolutionDir)\src\tinyxml2\tinyxml2.h" />
-    <ClInclude Include="$(SolutionDir)\postsrc\serialization_utils.h" />
-    <ClInclude Include="$(SolutionDir)\postsrc\SerializerStream.h" />
-    <ClInclude Include="$(SolutionDir)\postsrc\Serializable.h" />
-    <ClInclude Include="$(SolutionDir)\src\util.h" />
-    <ClInclude Include="$(SolutionDir)\src\sha256.h" />
-    <ClInclude Include="$(SolutionDir)\src\typehash.h" />
-    <ClInclude Include="$(SolutionDir)\src\variable_formatter.h" />
+    <ClInclude Include="$(ProjectDir)\testtype.generated.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

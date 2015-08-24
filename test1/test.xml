@@ -1,0 +1,10 @@
+<cpp name="testtype">
+	<struct name="test_type">
+		<bool name="valid"/>
+		<string name="name"/>
+		<pointer name="next">
+			<test_type/>
+		</pointer>
+		<include header="&quot;testtype.h&quot;"/>
+	</struct>
+</cpp>
