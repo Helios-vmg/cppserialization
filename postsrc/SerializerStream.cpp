@@ -36,11 +36,10 @@ void SerializerStream::begin_serialization(const Serializable &obj, bool include
 		this->node_map[id] = top;
 	}
 	if (include_typehashes){
-		size_t length;
-		auto list = obj.get_type_hashes_list(length);
-		while (length--){
-			this->serialize(list[length].first);
-			this->serialize_array(list[length].second.digest);
+		auto list = obj.get_metadata()->get_known_types();
+		for (auto &i : list){
+			this->serialize(i.first);
+			this->serialize_array(i.second.digest);
 		}
 	}
 	for (auto &n : this->node_map){

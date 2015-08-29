@@ -60,6 +60,9 @@ class SerializableMetadata{
 	std::function<void(std::uint32_t, Serializable *, DeserializerStream &)> constructor;
 public:
 	void add_type(std::uint32_t, const TypeHash &);
+	const std::vector<std::pair<std::uint32_t, TypeHash> > &get_known_types() const{
+		return this->known_types;
+	}
 	void set_functions(const std::function<Serializable *(std::uint32_t)> &allocator, const std::function<void(std::uint32_t, Serializable *, DeserializerStream &)> &constructor){
 		this->allocator = allocator;
 		this->constructor = constructor;
