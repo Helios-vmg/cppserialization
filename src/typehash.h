@@ -1,8 +1,10 @@
 #ifndef TYPEHASH_H
 #define TYPEHASH_H
 
+#ifndef HAVE_PRECOMPILED_HEADERS
 #include <cstring>
 #include <string>
+#endif
 
 struct TypeHash{
 	unsigned char digest[32];

@@ -1,3 +1,4 @@
+#ifndef HAVE_PRECOMPILED_HEADERS
 #include <iostream>
 #include <sstream>
 #include <memory>
@@ -5,11 +6,16 @@
 #include <vector>
 #include <set>
 #include <unordered_map>
+#include <map>
 #include <functional>
 #include <cstdint>
 #include <boost/bimap.hpp>
 #include <boost/bimap/set_of.hpp>
+#include <random>
+#endif
 #include "typehash.h"
+
+extern std::mt19937_64 rng;
 
 class CppElement{
 public:
@@ -31,6 +37,10 @@ protected:
 	typedef const std::function<void(Type &, std::uint32_t &)> iterate_callback_t;
 	virtual void iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited){
 		callback(*this, this->type_id);
+	}
+	virtual void iterate_only_public_internal(iterate_callback_t &callback, std::set<Type *> &visited, bool do_not_ignore){
+		if (do_not_ignore)
+			callback(*this, this->type_id);
 	}
 public:
 	virtual ~Type(){}
@@ -72,6 +82,20 @@ public:
 			return;
 		visited.insert(this);
 		this->iterate_internal(callback, visited);
+	}
+	void iterate_only_public(iterate_callback_t &callback){
+		std::set<Type *> visited;
+		this->iterate_only_public(callback, visited, true);
+	}
+	void iterate_only_public(iterate_callback_t &callback, std::set<Type *> &visited, bool do_not_ignore){
+		auto it = visited.find(this);
+		if (it != visited.end())
+			return;
+		visited.insert(this);
+		this->iterate_only_public_internal(callback, visited, do_not_ignore);
+	}
+	virtual bool is_pointer_type() const{
+		return false;
 	}
 };
 
@@ -189,6 +213,11 @@ protected:
 		this->inner->iterate(callback, visited);
 		Type::iterate_internal(callback, visited);
 	}
+	virtual void iterate_only_public_internal(iterate_callback_t &callback, std::set<Type *> &visited, bool do_not_ignore) override{
+		bool not_ignore = this->is_pointer_type();
+		this->inner->iterate_only_public(callback, visited, not_ignore);
+		Type::iterate_only_public_internal(callback, visited, do_not_ignore);
+	}
 public:
 	NestedType(const std::shared_ptr<Type> &inner): inner(inner){}
 	virtual ~NestedType(){}
@@ -224,20 +253,42 @@ public:
 	std::string get_type_string() const override{
 		return this->inner->get_type_string() + "*";
 	}
+	virtual bool is_pointer_type() const override{
+		return true;
+	}
 };
 
-class SharedPtrType : public NestedType{
+class StdSmartPtrType : public NestedType{
 public:
-	SharedPtrType(const std::shared_ptr<Type> &inner): NestedType(inner){}
-	std::ostream &output(std::ostream &stream) const override{
-		return stream << "std::shared_ptr<" << this->inner << ">";
-	}
+	StdSmartPtrType(const std::shared_ptr<Type> &inner): NestedType(inner){}
+	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
 	const char *header() const override{
 		return "<memory>";
 	}
-	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
+	virtual bool is_pointer_type() const override{
+		return true;
+	}
+};
+
+class SharedPtrType : public StdSmartPtrType{
+public:
+	SharedPtrType(const std::shared_ptr<Type> &inner): StdSmartPtrType(inner){}
+	std::ostream &output(std::ostream &stream) const override{
+		return stream << "std::shared_ptr<" << this->inner << ">";
+	}
 	std::string get_type_string() const override{
 		return "shared_ptr<" + this->inner->get_type_string() + ">";
+	}
+};
+
+class UniquePtrType : public StdSmartPtrType{
+public:
+	UniquePtrType(const std::shared_ptr<Type> &inner): StdSmartPtrType(inner){}
+	std::ostream &output(std::ostream &stream) const override{
+		return stream << "std::unique_ptr<" << this->inner << ">";
+	}
+	std::string get_type_string() const override{
+		return "unique_ptr<" + this->inner->get_type_string() + ">";
 	}
 };
 
@@ -311,6 +362,12 @@ protected:
 		this->first->iterate(callback, visited);
 		this->second->iterate(callback, visited);
 		Type::iterate_internal(callback, visited);
+	}
+	virtual void iterate_only_public_internal(iterate_callback_t &callback, std::set<Type *> &visited, bool do_not_ignore) override{
+		bool not_ignore = this->is_pointer_type();
+		this->first->iterate_only_public(callback, visited, not_ignore);
+		this->second->iterate_only_public(callback, visited, not_ignore);
+		Type::iterate_only_public_internal(callback, visited, do_not_ignore);
 	}
 public:
 	PairType(const std::shared_ptr<Type> &first, const std::shared_ptr<Type> &second):
@@ -473,6 +530,7 @@ class UserClass : public Type, public CppElement{
 	static unsigned next_type_id;
 protected:
 	virtual void iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited) override;
+	virtual void iterate_only_public_internal(iterate_callback_t &callback, std::set<Type *> &visited, bool do_not_ignore) override;
 public:
 	UserClass(const std::string &name):
 		adding_headers(false),
@@ -495,6 +553,7 @@ public:
 	void generate_get_object_node2(std::ostream &) const;
 	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
 	void generate_serialize(std::ostream &) const;
+	void generate_get_metadata(std::ostream &) const;
 	std::string get_type_string() const override{
 		return this->name;
 	}
@@ -509,13 +568,14 @@ public:
 	DEFINE_GENERATE_OVERLOAD(generate_get_object_node2)
 	DEFINE_GENERATE_OVERLOAD(generate_serialize)
 	DEFINE_GENERATE_OVERLOAD(generate_get_type_hash)
+	DEFINE_GENERATE_OVERLOAD(generate_get_metadata)
 };
 
 class CppFile{
 	std::string name;
 	std::vector<std::shared_ptr<CppElement> > elements;
 	std::unordered_map<std::string, std::shared_ptr<UserClass> > classes;
-	typedef boost::bimap<boost::bimaps::set_of<TypeHash>, boost::bimaps::set_of<unsigned>> type_map_t;
+	typedef std::map<unsigned, Type *> type_map_t;
 	type_map_t type_map;
 	void assign_type_ids();
 public:
@@ -535,6 +595,8 @@ public:
 	void generate_header();
 	void generate_source();
 	void generate_aux();
+	void generate_allocator(std::ostream &);
+	void generate_constructor(std::ostream &);
 };
 
 class UserInclude : public CppElement, public ClassElement{

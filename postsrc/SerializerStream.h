@@ -125,6 +125,8 @@ public:
 		BOOST_STATIC_ASSERT(CHAR_BIT == 8);
 
 		const unsigned shift = sizeof(n) * 8 - 7;
+		std::uint8_t buffer[(sizeof(n) * 8 + 6) / 7 * 2]; //times 2 for safety
+		size_t buffer_size = 0;
 
 		const std::uint8_t mask = 0x7F;
 		while (n > mask){
@@ -132,18 +134,16 @@ public:
 			n <<= 7;
 			m &= mask;
 			m |= ~mask;
-			this->serialize(m);
+			buffer[buffer_size++] = m;
 		}
-		this->serialize((std::uint8_t)n);
+		buffer[buffer_size++] = (std::uint8_t)n;
+		this->stream->write((const char *)buffer, buffer_size);
 	}
 	template <typename T>
 	typename std::enable_if<std::is_floating_point<T>::value, void>::type serialize(const T &x){
+		BOOST_STATIC_ASSERT(std::numeric_limits<T>::is_iec559);
 		typedef typename floating_point_mapping<T>::type u;
-		u mantissa;
-		int exponent;
-		to_ints(mantissa, exponent, x);
-		this->serialize_fixed(mantissa);
-		this->serialize(exponent);
+		this->serialize_fixed(*(const u *)&x);
 	}
 	template <typename T>
 	void serialize(const std::basic_string<T> &s){

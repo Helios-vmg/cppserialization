@@ -1,5 +1,7 @@
+#ifndef HAVE_PRECOMPILED_HEADERS
 #include <sstream>
 #include <string>
+#endif
 
 inline unsigned get_unique_id(){
 	static unsigned ret = 0;

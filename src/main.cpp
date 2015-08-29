@@ -1,10 +1,13 @@
+#include "stdafx.h"
 #include "las.h"
-#include "tinyxml2/tinyxml2.h"
 #include "util.h"
+#ifndef HAVE_PRECOMPILED_HEADERS
+#include "tinyxml2/tinyxml2.h"
 #include <unordered_map>
 #include <sstream>
 #include <functional>
 #include <fstream>
+#endif
 
 template <typename T>
 std::shared_ptr<T> make_shared(T *p){
@@ -36,6 +39,16 @@ std::shared_ptr<Type> create_shared_ptr_t(const XMLElement *parent){
 		if (it == callback_map.end())
 			continue;
 		return make_shared(new SharedPtrType(it->second(el)));
+	}
+	return nullptr;
+}
+
+std::shared_ptr<Type> create_unique_ptr_t(const XMLElement *parent){
+	for (auto el = parent->FirstChildElement(); el; el = el->NextSiblingElement()){
+		auto it = callback_map.find((std::string)el->Name());
+		if (it == callback_map.end())
+			continue;
+		return make_shared(new UniquePtrType(it->second(el)));
 	}
 	return nullptr;
 }
@@ -75,6 +88,7 @@ struct init_maps{
 		callback_map["string"] = [](const XMLElement *){ return create_string_type(false); };
 		callback_map["wstring"] = [](const XMLElement *){ return create_string_type(true); };
 		callback_map["shared_ptr"] = create_shared_ptr_t;
+		callback_map["unique_ptr"] = create_unique_ptr_t;
 		callback_map["array"] = create_array_type;
 		callback_map["pointer"] = create_pointer_type;
 	}
@@ -184,6 +198,10 @@ std::vector<std::shared_ptr<CppFile> > iterate_document(const XMLDocument &doc){
 int main(int argc, char **argv){
 	if (argc < 2)
 		return -1;
+	{
+		std::random_device dev;
+		rng.seed(dev());
+	}
 	XMLDocument doc;
 	doc.LoadFile(argv[1]);
 	auto cpps = iterate_document(doc);

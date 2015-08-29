@@ -3,6 +3,9 @@
 
 int main(){
 	test_type a[3];
+	a[0].valid = true;
+	a[1].valid = true;
+	a[2].valid = true;
 	a[0].name = "hello0";
 	a[1].name = "hello1";
 	a[2].name = "hello2";

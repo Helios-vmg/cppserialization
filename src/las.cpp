@@ -1,11 +1,46 @@
+#include "stdafx.h"
 #include "las.h"
 #include "util.h"
+#include "variable_formatter.h"
+#include "typehash.h"
+#ifndef HAVE_PRECOMPILED_HEADERS
 #include <fstream>
 #include <sstream>
 #include <array>
+#include <iomanip>
 #include <boost/format.hpp>
-#include "variable_formatter.h"
-#include "typehash.h"
+#endif
+
+std::string metadata_function_name;
+std::string allocator_function_name;
+std::string constructor_function_name;
+std::mt19937_64 rng;
+std::uint64_t random_function_name = 0;
+
+void get_randomized_function_name(std::string &name, const char *custom_part){
+	if (name.size())
+		return;
+	if (!random_function_name)
+		random_function_name = rng();
+	std::stringstream stream;
+	stream << custom_part << std::hex << std::setw(16) << std::setfill('0') << random_function_name;
+	name = stream.str();
+}
+
+std::string get_metadata_function_name(){
+	get_randomized_function_name(metadata_function_name, "get_metadata_");
+	return metadata_function_name;
+}
+
+std::string get_allocator_function_name(){
+	get_randomized_function_name(allocator_function_name, "allocator_");
+	return allocator_function_name;
+}
+
+std::string get_constructor_function_name(){
+	get_randomized_function_name(constructor_function_name, "constructor_");
+	return constructor_function_name;
+}
 
 std::string IntegerType::get_type_string() const{
 	std::stringstream stream;
@@ -59,7 +94,7 @@ void PointerType::generate_pointer_enumerator(generate_pointer_enumerator_callba
 	callback(this_name, CallMode::TransformAndAdd);
 }
 
-void SharedPtrType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
+void StdSmartPtrType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
 	callback((boost::format("(%1%).get()") % this_name).str(), CallMode::TransformAndAdd);
 }
 
@@ -136,7 +171,7 @@ void UserClass::generate_header(std::ostream &stream) const{
 		"virtual void serialize(SerializerStream &) const override;\n"
 		"virtual std::uint32_t get_type_id() const override;\n"
 		"virtual TypeHash get_type_hash() const override;\n"
-		"virtual const std::pair<std::uint32_t, TypeHash> *get_type_hashes_list(size_t &length) const override;\n"
+		"virtual std::shared_ptr<SerializableMetadata> get_metadata() const override;\n"
 		"}};\n";
 	stream << (std::string)(variable_formatter(format) << "name" << this->name);
 }
@@ -212,6 +247,10 @@ void UserClass::generate_get_type_hash(std::ostream &stream) const{
 	stream << "return TypeHash(" << this->get_type_hash().to_string() << ");";
 }
 
+void UserClass::generate_get_metadata(std::ostream &stream) const{
+	stream << "return " << get_metadata_function_name() << "();\n";
+}
+
 void UserClass::generate_source(std::ostream &stream) const{
 	static const char *format =
 		"{name}::{name}(DeserializerStream &ds){{\n"
@@ -234,9 +273,10 @@ void UserClass::generate_source(std::ostream &stream) const{
 		"{gth}"
 		"}}\n"
 		"\n"
-		"const std::pair<std::uint32_t, TypeHash> *{name}::get_type_hashes_list(size_t &length) const{{\n"
-		"    return ::get_type_hashes_list(length);"
-		"}}\n";
+		"std::shared_ptr<SerializableMetadata> {name}::get_metadata() const{{\n"
+		"{gmd}"
+		"}}\n"
+		"\n";
 	variable_formatter vf = format;
 	vf
 		<< "name" << this->name
@@ -244,7 +284,8 @@ void UserClass::generate_source(std::ostream &stream) const{
 		<< "gon" << this->generate_get_object_node2()
 		<< "ser" << this->generate_serialize()
 		<< "gti" << ("return " + utoa(this->get_type_id()) + ";")
-		<< "gth" << this->generate_get_type_hash();
+		<< "gth" << this->generate_get_type_hash()
+		<< "gmd" << this->generate_get_metadata();
 	stream << (std::string)vf;
 }
 
@@ -258,6 +299,18 @@ void UserClass::iterate_internal(iterate_callback_t &callback, std::set<Type *> 
 		casted->get_type()->iterate(callback, visited);
 	}
 	Type::iterate_internal(callback, visited);
+}
+
+void UserClass::iterate_only_public_internal(iterate_callback_t &callback, std::set<Type *> &visited, bool do_not_ignore){
+	for (auto &b : this->base_classes)
+		b->iterate_only_public(callback, visited, false);
+	for (auto &e : this->elements){
+		auto casted = std::dynamic_pointer_cast<ClassMember>(e);
+		if (!casted)
+			continue;
+		casted->get_type()->iterate_only_public(callback, visited, false);
+	}
+	Type::iterate_only_public_internal(callback, visited, true);
 }
 
 std::string UserClass::base_get_type_string() const{
@@ -287,14 +340,14 @@ void CppFile::assign_type_ids(){
 
 	std::uint32_t id = 1;
 
-	auto &type_map = this->type_map;
+	std::map<TypeHash, std::pair<unsigned, Type *> > type_map;
 	auto callback = [&type_map, &id](Type &t, std::uint32_t &type_id){
 		auto &hash = t.get_type_hash();
-		auto it = type_map.left.find(hash);
-		if (it != type_map.left.end())
+		auto it = type_map.find(hash);
+		if (it != type_map.end())
 			return;
 		type_id = id;
-		type_map.insert(type_map_t::value_type(hash, id));
+		type_map[hash] = std::make_pair(id, &t);
 		id++;
 	};
 
@@ -302,8 +355,10 @@ void CppFile::assign_type_ids(){
 		auto Class = std::dynamic_pointer_cast<UserClass>(e);
 		if (!Class)
 			continue;
-		Class->iterate(callback);
+		Class->iterate_only_public(callback);
 	}
+	for (auto &kv : type_map)
+		this->type_map[kv.second.first] = kv.second.second;
 }
 
 void CppFile::generate_header(){
@@ -343,6 +398,10 @@ void CppFile::generate_header(){
 	}
 }
 
+std::string generate_get_metadata_signature(){
+	return "std::shared_ptr<SerializableMetadata> " + get_metadata_function_name() + "()";
+}
+
 void CppFile::generate_source(){
 	this->assign_type_ids();
 
@@ -353,10 +412,7 @@ void CppFile::generate_source(){
 		"extern std::pair<std::uint32_t, TypeHash> " << this->get_name() << "_id_hashes[];\n"
 		"extern size_t " << this->get_name() << "_id_hashes_length;\n"
 		"\n"
-		"static std::pair<std::uint32_t, TypeHash> *get_type_hashes_list(size_t &l){\n"
-			"l = " << this->get_name() << "_id_hashes_length;\n"
-			"return " << this->get_name() << "_id_hashes;\n"
-		"}\n"
+		<< generate_get_metadata_signature() << ";\n"
 		"\n";
 
 	for (auto &e : this->elements){
@@ -368,21 +424,70 @@ void CppFile::generate_source(){
 	}
 }
 
+void CppFile::generate_allocator(std::ostream &stream){
+	stream << "void *" << get_allocator_function_name() << "(std::uint32_t type){\n"
+		"switch (type){\n";
+	for (auto &kv : this->type_map){
+		stream <<
+			"case " << kv.first << ":\n"
+			"return ::operator new (sizeof(";
+		kv.second->output(stream);
+		stream << "));\n";
+	}
+	stream <<
+		"}\n"
+		"return nullptr;"
+		"}\n";
+}
+
+void CppFile::generate_constructor(std::ostream &stream){
+	stream << "void " << get_constructor_function_name() << "(std::uint32_t type, void *s, DeserializerStream &ds){\n"
+		"switch (type){\n";
+	for (auto &kv : this->type_map){
+		stream <<
+			"case " << kv.first << ":\n"
+			"ds.deserialize((";
+		kv.second->output(stream);
+		stream << " *)s);\n"
+			"break;";
+	}
+	stream <<
+		"}\n"
+		"return nullptr;"
+		"}\n";
+}
+
 void CppFile::generate_aux(){
 	this->assign_type_ids();
 
 	std::ofstream file((this->get_name() + ".aux.generated.cpp").c_str());
+
+	std::string array_name = this->get_name() + "_id_hashes";
 
 	file <<
 		"#include \"Serializable.h\"\n"
 		"#include <utility>\n"
 		"#include <cstdint>\n"
 		"\n"
-		"std::pair<std::uint32_t, TypeHash> " << this->get_name() << "_id_hashes[] = {\n";
+		"std::pair<std::uint32_t, TypeHash> " << array_name << "[] = {\n";
 
-	for (auto &i : this->type_map.left)
-		file << "{ " << i.second << ", TypeHash(" << i.first.to_string() << ")},\n";
+	for (auto &i : this->type_map)
+		file << "{ " << i.first << ", TypeHash(" << i.second->get_type_hash().to_string() << ")},\n";
 
-	file << "};\n"
-		"size_t " << this->get_name() << "_id_hashes_length = " << this->type_map.left.size() << ";\n";
+	file <<
+		"};\n"
+		"size_t " << this->get_name() << "_id_hashes_length = " << this->type_map.size() << ";\n"
+		"\n";
+	this->generate_allocator(file);
+	file << "\n";
+	this->generate_constructor(file);
+	file <<
+		"\n"
+		<< generate_get_metadata_signature() << "{\n"
+			"std::shared_ptr<SerializableMetadata> ret(new SerializableMetadata);\n"
+			"ret->set_functions(" << get_allocator_function_name() << ", " << get_constructor_function_name() <<");\n"
+			"for (auto &p : " << array_name << ")\n"
+				"ret->add_type(p.first, p.second);\n"
+			"return ret;\n"
+		"}\n";
 }
