@@ -95,7 +95,8 @@ void PointerType::generate_pointer_enumerator(generate_pointer_enumerator_callba
 }
 
 void StdSmartPtrType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
-	callback((boost::format("(%1%).get()") % this_name).str(), CallMode::TransformAndAdd);
+	auto param = "(" + this_name + ").get()";
+	callback(param, CallMode::TransformAndAdd);
 }
 
 void SequenceType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{

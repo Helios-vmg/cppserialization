@@ -3,9 +3,6 @@
 
 #include "tinyxml2/tinyxml2.h"
 #include <array>
-#include <boost/bimap.hpp>
-#include <boost/bimap/set_of.hpp>
-#include <boost/format.hpp>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
