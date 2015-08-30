@@ -10,7 +10,6 @@
 #include <unordered_set>
 #include <map>
 #include <unordered_map>
-#include <boost/static_assert.hpp>
 #include <stack>
 #include <climits>
 #include "serialization_utils.h"
@@ -61,7 +60,7 @@ struct floating_point_mapping<long double>{
 };
 
 class SerializerStream{
-	typedef unsigned objectid_t;
+	typedef std::uint32_t objectid_t;
 	static const objectid_t null_oid = 0;
 	objectid_t next_object_id;
 	std::unordered_map<uintptr_t, objectid_t> id_map;
@@ -107,7 +106,7 @@ public:
 	}
 	template <typename T>
 	typename std::enable_if<std::is_unsigned<T>::value, void>::type serialize_fixed(T n){
-		BOOST_STATIC_ASSERT(CHAR_BIT == 8);
+		static_assert(CHAR_BIT == 8, "Only 8-bit byte platforms supported!");
 
 		std::uint8_t array[sizeof(n)];
 		for (auto &i : array){
@@ -122,7 +121,7 @@ public:
 	}
 	template <typename T>
 	typename std::enable_if<std::is_unsigned<T>::value, void>::type serialize(T n){
-		BOOST_STATIC_ASSERT(CHAR_BIT == 8);
+		static_assert(CHAR_BIT == 8, "Only 8-bit byte platforms supported!");
 
 		const unsigned shift = sizeof(n) * 8 - 7;
 		std::uint8_t buffer[(sizeof(n) * 8 + 6) / 7 * 2]; //times 2 for safety
@@ -141,7 +140,7 @@ public:
 	}
 	template <typename T>
 	typename std::enable_if<std::is_floating_point<T>::value, void>::type serialize(const T &x){
-		BOOST_STATIC_ASSERT(std::numeric_limits<T>::is_iec559);
+		static_assert(std::numeric_limits<T>::is_iec559, "Only iec559 float/doubles supported!");
 		typedef typename floating_point_mapping<T>::type u;
 		this->serialize_fixed(*(const u *)&x);
 	}

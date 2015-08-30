@@ -89,6 +89,9 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="$(SolutionDir)\postsrc\DeserializerStream.cpp" />
+    <ClCompile Include="$(SolutionDir)\postsrc\Serializable.cpp" />
+    <ClCompile Include="$(SolutionDir)\postsrc\SerializerStream.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(SolutionDir)\src\las.h" />

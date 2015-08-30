@@ -37,11 +37,13 @@ void SerializerStream::begin_serialization(const Serializable &obj, bool include
 	}
 	if (include_typehashes){
 		auto list = obj.get_metadata()->get_known_types();
+		this->serialize((std::uint32_t)list.size());
 		for (auto &i : list){
 			this->serialize(i.first);
 			this->serialize_array(i.second.digest);
 		}
 	}
+	this->serialize((std::uint32_t)this->node_map.size())
 	for (auto &n : this->node_map){
 		this->serialize(n.first);
 		this->serialize(n.second.get_typeid());

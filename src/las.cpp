@@ -173,6 +173,7 @@ void UserClass::generate_header(std::ostream &stream) const{
 		"virtual std::uint32_t get_type_id() const override;\n"
 		"virtual TypeHash get_type_hash() const override;\n"
 		"virtual std::shared_ptr<SerializableMetadata> get_metadata() const override;\n"
+		"static std::shared_ptr<SerializableMetadata> static_get_metadata();\n"
 		"}};\n";
 	stream << (std::string)(variable_formatter(format) << "name" << this->name);
 }
@@ -258,7 +259,7 @@ void UserClass::generate_source(std::ostream &stream) const{
 		"{ctor}"
 		"}}\n"
 		"\n"
-		"void {name}::get_object_node(std::vector<ObjectNode> &v) const{{\n" 
+		"void {name}::get_object_node(std::vector<ObjectNode> &v) const{{\n"
 		"{gon}"
 		"}}\n"
 		"\n"
@@ -275,6 +276,10 @@ void UserClass::generate_source(std::ostream &stream) const{
 		"}}\n"
 		"\n"
 		"std::shared_ptr<SerializableMetadata> {name}::get_metadata() const{{\n"
+		"return this->static_get_metadata();\n"
+		"}}\n"
+		"\n"
+		"std::shared_ptr<SerializableMetadata> {name}::static_get_metadata(){{\n"
 		"{gmd}"
 		"}}\n"
 		"\n";

@@ -6,10 +6,26 @@
 class Serializable;
 
 class DeserializerStream{
+	typedef std::uint32_t objectid_t;
 	std::istream *stream;
+	std::map<objectid_t, void *> node_map;
+	std::vector<std::pair<std::uint32_t, TypeHash> > read_typehashes();
+	Serializable *begin_deserialization(SerializableMetadata &, bool includes_typehashes = false);
+	enum class State{
+		Safe,
+		ReadingTypeHashes,
+		AllocatingMemory,
+		InitializingObjects,
+	};
+	State state;
 public:
 	DeserializerStream(std::istream &);
-	Serializable *begin_deserialization(bool includes_typehashes = false);
+	template <typename Target>
+	Target *begin_deserialization(bool includes_typehashes = false){
+		auto metadata = Target::static_get_metadata();
+		auto ret = this->begin_serialization(*metadata, includes_typehashes);
+		return dynamic_cast<Target *>(ret);
+	}
 	void serialize_id(const void *p){
 		auto it = this->id_map.find((uintptr_t)p);
 		if (it == this->id_map.end())

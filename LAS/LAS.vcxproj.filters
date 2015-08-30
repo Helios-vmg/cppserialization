@@ -16,6 +16,9 @@
     <Filter Include="Header Files\postsrc">
       <UniqueIdentifier>{dcc69027-a486-4488-9d41-54a12af89236}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\postsrc">
+      <UniqueIdentifier>{95584968-6436-442a-a0d8-41a12d45caa9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="$(SolutionDir)\src\las.cpp">
@@ -35,6 +38,15 @@
     </ClCompile>
     <ClCompile Include="$(SolutionDir)\src\stdafx.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\postsrc\DeserializerStream.cpp">
+      <Filter>Source Files\postsrc</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\postsrc\Serializable.cpp">
+      <Filter>Source Files\postsrc</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\postsrc\SerializerStream.cpp">
+      <Filter>Source Files\postsrc</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
