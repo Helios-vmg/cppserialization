@@ -18,10 +18,6 @@ class DeserializerStream{
 	std::istream *stream;
 	std::map<objectid_t, void *> node_map;
 	std::vector<std::pair<std::uint32_t, TypeHash> > read_typehashes();
-	typedef std::pair<void *, void(*)(void *)> smart_ptr_freer_pair_t;
-	std::map<uintptr_t, smart_ptr_freer_pair_t> known_shared_ptrs;
-	std::map<uintptr_t, smart_ptr_freer_pair_t> known_unique_ptrs;
-	Serializable *begin_deserialization(SerializableMetadata &, bool includes_typehashes = false);
 	enum class State{
 		Safe,
 		ReadingTypeHashes,
@@ -31,6 +27,27 @@ class DeserializerStream{
 		Done,
 	};
 	State state;
+	typedef std::pair<void *, void(*)(void *)> smart_ptr_freer_pair_t;
+	std::map<uintptr_t, smart_ptr_freer_pair_t> known_shared_ptrs;
+	std::map<uintptr_t, smart_ptr_freer_pair_t> known_unique_ptrs;
+
+	Serializable *begin_deserialization(SerializableMetadata &, bool includes_typehashes = false);
+	template <typename T>
+	void deserialize(T &t, smart_ptr_freer_pair_t &correct, smart_ptr_freer_pair_t &incorrect){
+		typename T::element_type *p;
+		this->deserialize_id(p);
+		auto it = incorrect.find((uintptr_t)p);
+		if (it != incorrect.end())
+			throw std::exception("Inconsistent smart pointer usage detected.");
+		it = correct.find((uintptr_t)p);
+		if (it != correct.end()){
+			t = *(T *)it->second.first;
+			return;
+		}
+		auto *sp = new T(p);
+		this->correct[(uintptr_t)p] = smart_ptr_freer_pair_t(sp, [](void *p){ delete (T *)p; });
+		t = *sp;
+	}
 public:
 	DeserializerStream(std::istream &);
 	template <typename Target>
@@ -56,35 +73,11 @@ public:
 	}
 	template <typename T>
 	void deserialize(std::shared_ptr<T> &t){
-		T *p;
-		this->deserialize_id(p);
-		auto it = this->known_unique_ptrs.find((uintptr_t)p);
-		if (it != this->known_unique_ptrs.end())
-			throw std::exception("Inconsistent smart pointer usage detected.");
-		it = this->known_shared_ptrs.find((uintptr_t)p);
-		if (it != this->known_shared_ptrs.end()){
-			t = *(std::shared_ptr<T> *)it->second.first;
-			return;
-		}
-		auto *sp = new std::shared_ptr<T>(p);
-		this->known_shared_ptrs[(uintptr_t)p] = smart_ptr_freer_pair_t(sp, [](void *p){ delete (std::shared_ptr<T> *)p; });
-		t = *sp;
+		this->deserialize(t, this->known_shared_ptrs, this->known_unique_ptrs);
 	}
 	template <typename T>
 	void deserialize(std::unique_ptr<T> &t){
-		T *p;
-		this->deserialize_id(p);
-		auto it = this->known_shared_ptrs.find((uintptr_t)p);
-		if (it != this->known_shared_ptrs.end())
-			throw std::exception("Inconsistent smart pointer usage detected.");
-		it = this->known_unique_ptrs.find((uintptr_t)p);
-		if (it != this->known_unique_ptrs.end()){
-			t = *(std::unique_ptr<T> *)it->second.first;
-			return;
-		}
-		auto *sp = new std::unique_ptr<T>(p);
-		this->known_shared_ptrs[(uintptr_t)p] = smart_ptr_freer_pair_t(sp, [](void *p){ delete (std::unique_ptr<T> *)p; });
-		t = *sp;
+		this->deserialize(t, this->known_unique_ptrs, this->known_shared_ptrs);
 	}
 	template <typename T, size_t N>
 	void deserialize_array(T (&array)[N]){
