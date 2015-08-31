@@ -56,12 +56,19 @@ inline ObjectNode get_object_node(const Serializable *serializable){
 }
 
 class SerializableMetadata{
+public:
+	typedef std::function<Serializable *(std::uint32_t)> allocator_t;
+	typedef std::function<void(std::uint32_t, void *, DeserializerStream &)> constructor_t;
+	typedef std::function<void(std::uint32_t, void *)> rollbacker_t;
+	typedef std::function<bool(std::uint32_t)> is_serializable_t;
+private:
 	std::vector<std::pair<std::uint32_t, TypeHash> > known_types;
 	//Used for deserialization.
 	std::map<std::uint32_t, std::uint32_t> typemap;
-	std::function<Serializable *(std::uint32_t)> allocator;
-	std::function<void(std::uint32_t, void *, DeserializerStream &)> constructor;
-	std::function<void(std::uint32_t, void *)> rollbacker;
+	allocator_t allocator;
+	constructor_t constructor;
+	rollbacker_t rollbacker;
+	is_serializable_t is_serializable;
 	std::uint32_t map_type(std::uint32_t);
 	std::uint32_t known_type_from_hash(const TypeHash &);
 public:
@@ -70,13 +77,20 @@ public:
 	const std::vector<std::pair<std::uint32_t, TypeHash> > &get_known_types() const{
 		return this->known_types;
 	}
-	void set_functions(const std::function<Serializable *(std::uint32_t)> &allocator, const std::function<void(std::uint32_t, Serializable *, DeserializerStream &)> &constructor, const std::function<void(std::uint32_t, void *)> &rollbacker){
+	void set_functions(
+			const allocator_t &allocator,
+			const constructor_t &constructor,
+			const rollbacker_t &rollbacker,
+			const is_serializable_t &is_serializable){
 		this->allocator = allocator;
 		this->constructor = constructor;
 		this->rollbacker = rollbacker;
+		this->is_serializable = is_serializable;
 	}
 	void *allocate_memory(std::uint32_t);
 	void construct_memory(std::uint32_t, void *, DeserializerStream &);
+	void rollback_construction(std::uint32_t, void *);
+	bool type_is_serializable(std::uint32_t);
 };
 
 #endif

@@ -5,17 +5,30 @@
 
 class Serializable;
 
+template <typename T>
+typename std::make_unsigned<T>::type uints_to_ints(T n){
+	typedef typename std::make_signed<T>::type s;
+	if (!(z % 2))
+		return (s)(z / 2);
+	return -(s)((x - 1) / 2) - 1;
+}
+
 class DeserializerStream{
 	typedef std::uint32_t objectid_t;
 	std::istream *stream;
 	std::map<objectid_t, void *> node_map;
 	std::vector<std::pair<std::uint32_t, TypeHash> > read_typehashes();
+	typedef std::pair<void *, void(*)(void *)> smart_ptr_freer_pair_t;
+	std::map<uintptr_t, smart_ptr_freer_pair_t> known_shared_ptrs;
+	std::map<uintptr_t, smart_ptr_freer_pair_t> known_unique_ptrs;
 	Serializable *begin_deserialization(SerializableMetadata &, bool includes_typehashes = false);
 	enum class State{
 		Safe,
 		ReadingTypeHashes,
 		AllocatingMemory,
 		InitializingObjects,
+		SanityCheck,
+		Done,
 	};
 	State state;
 public:
@@ -23,51 +36,88 @@ public:
 	template <typename Target>
 	Target *begin_deserialization(bool includes_typehashes = false){
 		auto metadata = Target::static_get_metadata();
-		auto ret = this->begin_serialization(*metadata, includes_typehashes);
-		return dynamic_cast<Target *>(ret);
+		auto p = this->begin_serialization(*metadata, includes_typehashes);
+		auto ret = dynamic_cast<Target *>(p);
+		if (!ret)
+			delete p;
+		return ret;
 	}
-	void serialize_id(const void *p){
-		auto it = this->id_map.find((uintptr_t)p);
-		if (it == this->id_map.end())
-			abort();
-		this->serialize(it->second);
+	void deserialize_id(void *&p){
+		objectid_t oid;
+		this->deserialize(oid);
+		auto it = this->node_map.find(oid);
+		if (it == this->node_map.end())
+			throw std::exception("Serialized stream contains a reference to an unknown object.");
+		p = it->second;
 	}
 	template <typename T>
-	void serialize(const T *t){
-		this->serialize_id(t);
+	void deserialize(T *&t){
+		this->deserialize_id(t);
 	}
 	template <typename T>
-	void serialize(const std::shared_ptr<T> &t){
-		this->serialize_id(t.get());
+	void deserialize(std::shared_ptr<T> &t){
+		T *p;
+		this->deserialize_id(p);
+		auto it = this->known_unique_ptrs.find((uintptr_t)p);
+		if (it != this->known_unique_ptrs.end())
+			throw std::exception("Inconsistent smart pointer usage detected.");
+		it = this->known_shared_ptrs.find((uintptr_t)p);
+		if (it != this->known_shared_ptrs.end()){
+			t = *(std::shared_ptr<T> *)it->second.first;
+			return;
+		}
+		auto *sp = new std::shared_ptr<T>(p);
+		this->known_shared_ptrs[(uintptr_t)p] = smart_ptr_freer_pair_t(sp, [](void *p){ delete (std::shared_ptr<T> *)p; });
+		t = *sp;
+	}
+	template <typename T>
+	void deserialize(std::unique_ptr<T> &t){
+		T *p;
+		this->deserialize_id(p);
+		auto it = this->known_shared_ptrs.find((uintptr_t)p);
+		if (it != this->known_shared_ptrs.end())
+			throw std::exception("Inconsistent smart pointer usage detected.");
+		it = this->known_unique_ptrs.find((uintptr_t)p);
+		if (it != this->known_unique_ptrs.end()){
+			t = *(std::unique_ptr<T> *)it->second.first;
+			return;
+		}
+		auto *sp = new std::unique_ptr<T>(p);
+		this->known_shared_ptrs[(uintptr_t)p] = smart_ptr_freer_pair_t(sp, [](void *p){ delete (std::unique_ptr<T> *)p; });
+		t = *sp;
 	}
 	template <typename T, size_t N>
-	void serialize_array(const T (&array)[N]){
-		this->serialize<T, N>(array);
+	void deserialize_array(T (&array)[N]){
+		this->deserialize<T, N>(array);
 	}
 	template <typename T, size_t N>
-	void serialize(const T (&array)[N]){
+	void deserialize(T (&array)[N]){
 		for (const auto &e : array)
-			this->serialize(e);
+			this->deserialize(e);
 	}
-	void serialize(std::uint8_t c){
-		this->stream->write((const char *)&c, 1);
+	void deserialize(std::uint8_t &c){
+		this->stream->read((char *)&c, 1);
 	}
-	void serialize(bool b){
-		this->serialize((std::uint8_t)b);
+	void deserialize(std::int8_t &c){
+		this->stream->read((char *)&c, 1);
 	}
-	void serialize(std::int8_t c){
-		this->stream->write((const char *)&c, 1);
+	void deserialize(bool &b){
+		std::uint8_t temp;
+		this->deserialize(temp);
+		b = temp != 0;
 	}
 	template <typename T>
-	typename std::enable_if<std::is_unsigned<T>::value, void>::type serialize_fixed(T n){
-		BOOST_STATIC_ASSERT(CHAR_BIT == 8);
+	typename std::enable_if<std::is_unsigned<T>::value, void>::type deserialize_fixed(T &n){
+		static_assert(CHAR_BIT == 8, "Only 8-bit byte platforms supported!");
 
 		std::uint8_t array[sizeof(n)];
-		for (auto &i : array){
-			i = n & 0xFF;
-			n >>= 8;
+		this->stream->read((char *)array, sizeof(array));
+		unsigned shift = 0;
+		n = 0;
+		for (auto i : array){
+			n |= (T)i << shift;
+			shift += 8;
 		}
-		this->stream->write((const char *)array, sizeof(array));
 	}
 	template <typename T>
 	typename std::enable_if<std::is_signed<T>::value, void>::type serialize(T z){

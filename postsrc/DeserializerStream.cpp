@@ -20,16 +20,18 @@ std::vector<std::pair<std::uint32_t, TypeHash> > DeserializerStream::read_typeha
 }
 
 Serializable *DeserializerStream::begin_deserialization(SerializableMetadata &metadata, bool includes_typehashes){
-	std::vector<void *> initialized;
+	std::map<objectid_t, std::uint32_t> object_types;
+	std::vector<std::pair<std::uint32_t, void *> > initialized;
+	void *main_object = nullptr;
 	try{
 		this->state = State::ReadingTypeHashes;
 		if (includes_typehashes)
-			this->set_type_mappings(this->read_typehashes());
+			metadata.set_type_mappings(this->read_typehashes());
 		this->state = State::Safe;
 		std::uint32_t size;
 		this->deserialize(size);
 		this->state = State::AllocatingMemory;
-		std::map<objectid_t, std::uint32_t> object_types;
+		std::uint32_t main_object_type = 0;
 		for (auto i = size; i--;){
 			objectid_t object_id;
 			std::uint32_t type_id;
@@ -37,6 +39,10 @@ Serializable *DeserializerStream::begin_deserialization(SerializableMetadata &me
 			this->deserialize(type_id);
 			object_types[object_id] = type_id;
 			auto mem = metadata.allocate_memory(type_id);
+			if (!main_object){
+				main_object = mem;
+				main_object_type = type_id;
+			}
 			try{
 				this->node_map[object_id] = mem;
 			}catch (...){
@@ -46,15 +52,26 @@ Serializable *DeserializerStream::begin_deserialization(SerializableMetadata &me
 		}
 		this->state = State::InitializingObjects;
 		for (auto &kv : this->node_map){
-			metadata.construct_memory(object_types[kv.first], kv.second, *this);
+			auto type = object_types[kv.first];
+			metadata.construct_memory(type, kv.second, *this);
+			initialized.push_back(std::make_pair(type, kv.second));
 		}
-
+		this->state = State::SanityCheck;
+		if (!main_object_type || !main_object)
+			throw std::exception("Program in unknown state!");
+		if (!metadata.type_is_serializable(main_object_type))
+			throw std::exception("Main object is not an instance of Serializable. Deserilization cannot continue.");
+		this->state = State::Done;
 	}catch (...){
 		switch (this->state){
 			case State::Safe:
 				break;
 			case State::ReadingTypeHashes:
 				break;
+			case State::SanityCheck:
+			case State::InitializingObjects:
+				for (auto &p : initialized)
+					metadata.rollback_construction(object_types[p.first], p.second);
 			case State::AllocatingMemory:
 				for (auto &pair : this->node_map)
 					::operator delete(pair.second);
@@ -62,4 +79,11 @@ Serializable *DeserializerStream::begin_deserialization(SerializableMetadata &me
 				break;
 		}
 	}
+	for (auto &p : this->known_shared_ptrs)
+		p.second.second(p.second.first);
+	this->known_shared_ptrs.clear();
+	for (auto &p : this->known_unique_ptrs)
+		p.second.second(p.second.first);
+	this->known_unique_ptrs.clear();
+	return (Serializable *)main_object;
 }
