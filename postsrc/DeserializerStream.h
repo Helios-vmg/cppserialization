@@ -113,65 +113,108 @@ public:
 		}
 	}
 	template <typename T>
-	typename std::enable_if<std::is_signed<T>::value, void>::type serialize(T z){
-		this->serialize(ints_to_uints(z));
+	typename std::enable_if<std::is_signed<T>::value, void>::type deserialize(T &z){
+		typedef typename std::make_unsigned<T>::type u;
+		u temp;
+		this->deserialize(temp);
+		z = uints_to_ints(temp);
 	}
 	template <typename T>
-	typename std::enable_if<std::is_unsigned<T>::value, void>::type serialize(T n){
-		BOOST_STATIC_ASSERT(CHAR_BIT == 8);
+	typename std::enable_if<std::is_unsigned<T>::value, void>::type deserialize(T &n){
+		static_assert(CHAR_BIT == 8, "Only 8-bit byte platforms supported!");
 
-		const unsigned shift = sizeof(n) * 8 - 7;
-		const std::uint8_t buffer[(sizeof(n) * 8 + 6) / 7 * 2]; //times 2 for safety
-		size_t buffer_size = 0;
+		const unsigned shift = 7;
 
-		const std::uint8_t mask = 0x7F;
-		while (n > mask){
-			std::uint8_t m = n >> shift;
-			n <<= 7;
-			m &= mask;
-			m |= ~mask;
-			buffer[buffer_size++] = m;
-		}
-		buffer[buffer_size++] = (std::uint8_t)n;
-		this->stream->write((const char *)buffer, buffer_size);
+		n = 0;
+
+		const std::uint8_t more_mask = 0x80;
+		const std::uint8_t mask = ~more_mask;
+		do {
+			std::uint8_t byte;
+			this->deserialize(byte);
+			n << = shift;
+			n |= byte & mask;
+		}while ((byte & more_mask) == more_mask);
 	}
 	template <typename T>
-	typename std::enable_if<std::is_floating_point<T>::value, void>::type serialize(const T &x){
-		BOOST_STATIC_ASSERT(std::numeric_limits<T>::is_iec559);
+	typename std::enable_if<std::is_floating_point<T>::value, void>::type deserialize(T &x){
+		static_assert(std::numeric_limits<T>::is_iec559, "Only iec559 float/doubles supported!");
 		typedef typename floating_point_mapping<T>::type u;
-		this->serialize_fixed(*(const u *)&x);
+		static_assert(sizeof(u) != sizeof(T), "Hard-coded integer type doesn't match the size of requested float type!");
+		this->deserialize_fixed(*(const u *)&x);
 	}
 	template <typename T>
-	void serialize(const std::basic_string<T> &s){
-		this->serialize(s.size());
-		for (typename std::make_unsigned<T>::type c : s)
-			this->serialize(c);
-	}
-	template <typename It>
-	void serialize_sequence(It begin, It end, size_t length){
-		this->serialize(length);
-		for (; begin != end; ++begin)
-			this->serialize(*begin);
-	}
-	template <typename It>
-	void serialize_maplike(It begin, It end, size_t length){
-		this->serialize(length);
-		for (; begin != end; ++begin){
-			this->serialize(begin->first);
-			this->serialize(begin->second);
+	void deserialize(const std::basic_string<T> &s){
+		std::uint32_t size;
+		this->deserialize(size);
+		s.resize(size, 0);
+		for (std::uint32_t i = 0; i != size; i++){
+			typename std::make_unsigned<T>::type c;
+			this->deserialize(c);
+			s[i] = c;
 		}
 	}
 	template <typename T>
-	void serialize(const std::vector<T> &v){
-		this->serialize_sequence(v.begin(), v.end(), v.size());
+	std::enable_if<
+		std::is_fundamental<T>::value /**/
+	void deserialize(std::vector<T> &v){
+		v.clear();
+		std::uint32_t size;
+		this->deserialize(size);
+		v.reserve(size);
+		while (v.size() != size){
+			char buffer;
+			T temp;
+			this->deserialize(temp);
+			v.push_back(temp);
+		}
 	}
 	template <typename T>
-	void serialize(const std::set<T> &s){
-		this->serialize_sequence(s.begin(), s.end(), s.size());
+	void deserialize(std::vector<T> &v){
+		v.clear();
+		std::uint32_t size;
+		this->deserialize(size);
+		v.reserve(size);
+		while (v.size() != size){
+			char buffer;
+			T temp;
+			this->deserialize(temp);
+			v.push_back(temp);
+		}
+	}
+	template <typename SetT>
+	void deserialize_setlike(SetT &s){
+		s.clear();
+		std::uint32_t size;
+		this->deserialize(size);
+		while (s.size() != size){
+			SetT temp;
+			this->deserialize(temp);
+			s.insert(temp);
+		}
 	}
 	template <typename T>
-	void serialize(const std::unordered_set<T> &s){
-		this->serialize_sequence(s.begin(), s.end(), s.size());
+	void deserialize(std::set<T> &s){
+		this->deserialize_setlike(s);
+	}
+	template <typename T>
+	void serialize(std::unordered_set<T> &s){
+		this->deserialize_setlike(s);
+	}
+	template <typename MapT>
+	void serialize_maplike(MapT &m){
+		typedef typename MapT::key_type kt;
+		typedef typename MapT::mapped_type vt;
+		m.clear();
+		std::uint32_t size;
+		this->deserialize(size);
+		while (s.size() != size){
+			kt key;
+			vt
+			T temp;
+			this->deserialize(temp);
+			s.insert(temp);
+		}
 	}
 	template <typename T1, typename T2>
 	void serialize(const std::map<T1, T2> &s){

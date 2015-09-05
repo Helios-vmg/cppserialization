@@ -147,19 +147,19 @@ public:
 	}
 	template <typename T>
 	void serialize(const std::basic_string<T> &s){
-		this->serialize(s.size());
+		this->serialize((std::uint32_t)s.size());
 		for (typename std::make_unsigned<T>::type c : s)
 			this->serialize(c);
 	}
 	template <typename It>
 	void serialize_sequence(It begin, It end, size_t length){
-		this->serialize(length);
+		this->serialize((std::uint32_t)length);
 		for (; begin != end; ++begin)
 			this->serialize(*begin);
 	}
 	template <typename It>
 	void serialize_maplike(It begin, It end, size_t length){
-		this->serialize(length);
+		this->serialize((std::uint32_t)length);
 		for (; begin != end; ++begin){
 			this->serialize(begin->first);
 			this->serialize(begin->second);
