@@ -210,4 +210,81 @@ ObjectNode get_object_node(const std::shared_ptr<T> &n){
 	return get_object_node(n.get());
 }
 
+typedef std::uint64_t wire_size_t;
+
+template <typename T>
+typename std::make_unsigned<T>::type uints_to_ints(T n){
+	typedef typename std::make_signed<T>::type s;
+	if (!(z % 2))
+		return (s)(z / 2);
+	return -(s)((x - 1) / 2) - 1;
+}
+
+template <typename T>
+struct is_basic_type{
+	static const bool value = std::is_fundamental<T>::value || std::is_pointer<T>::value;
+};
+
+template <typename Container>
+struct is_smart_ptr{
+	static const bool value = false;
+};
+
+template <typename T> struct is_smart_ptr<std::shared_ptr<T>>{ static const bool value = true; };
+template <typename T> struct is_smart_ptr<std::unique_ptr<T>>{ static const bool value = true; };
+
+template <typename Container>
+struct is_sequence_container{
+	static const bool value = false;
+};
+
+template <typename T> struct is_sequence_container<std::vector<T>>{ static const bool value = true; };
+template <typename T> struct is_sequence_container<std::list<T>>{ static const bool value = true; };
+template <typename T> struct is_sequence_container<std::set<T>>{ static const bool value = true; };
+template <typename T> struct is_sequence_container<std::unordered_set<T>>{ static const bool value = true; };
+
+template <typename Container>
+struct is_setlike{
+	static const bool value = false;
+};
+
+template <typename T> struct is_setlike<std::set<T>>{ static const bool value = true; };
+template <typename T> struct is_setlike<std::unordered_set<T>>{ static const bool value = true; };
+
+template <typename Container>
+struct is_maplike{
+	static const bool value = false;
+};
+
+template <typename T1, typename T2> struct is_maplike<std::map<T1, T2>>{ static const bool value = true; };
+template <typename T1, typename T2> struct is_maplike<std::unordered_map<T1, T2>>{ static const bool value = true; };
+
+template <typename T>
+struct is_container{
+	static const bool value = is_sequence_container<T>::value || is_maplike<T>::value;
+};
+
+template <typename T>
+struct is_simply_constructible{
+	static const bool value = is_basic_type<T>::value || is_smart_ptr<T>::value || is_container<T>::value;
+};
+
+template <typename T>
+struct is_serializable{
+	static const bool value = std::is_base_of<Serializable, T>::value;
+};
+
+class DeserializerStream;
+
+template <typename T>
+struct proxy_constructor{
+	DeserializerStream &ds;
+	proxy_constructor(DeserializerStream &ds): ds(ds){}
+	operator T() const{
+		T temp;
+		this->ds.deserialize(temp);
+		return temp;
+	}
+};
+
 #endif

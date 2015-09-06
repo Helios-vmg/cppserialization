@@ -24,6 +24,10 @@ std::uint32_t SerializableMetadata::known_type_from_hash(const TypeHash &hash){
 	return 0;
 }
 
+void SerializableMetadata::add_type(std::uint32_t type, const TypeHash &type_hash){
+	this->known_types.push_back(std::make_pair(type, type_hash));
+}
+
 void SerializableMetadata::set_type_mappings(const std::vector<std::pair<std::uint32_t, TypeHash> > &typehashes){
 	this->typemap.clear();
 	for (auto &p : typehashes){
@@ -32,4 +36,12 @@ void SerializableMetadata::set_type_mappings(const std::vector<std::pair<std::ui
 			continue;
 		this->typemap[p.first] = known_type;
 	}
+}
+
+void SerializableMetadata::rollback_construction(std::uint32_t type, void *p){
+	this->rollbacker(type, p);
+}
+
+bool SerializableMetadata::type_is_serializable(std::uint32_t type){
+	return this->is_serializable(type);
 }

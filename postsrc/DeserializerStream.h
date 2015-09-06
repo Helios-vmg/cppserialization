@@ -2,16 +2,19 @@
 #define DESERIALIZERSTREAM_H
 
 #include <iostream>
+#include <type_traits>
+#include <vector>
+#include <list>
+#include <set>
+#include <unordered_set>
+#include <map>
+#include <unordered_map>
+#include <cstdint>
+#include "serialization_utils.h"
 
 class Serializable;
-
-template <typename T>
-typename std::make_unsigned<T>::type uints_to_ints(T n){
-	typedef typename std::make_signed<T>::type s;
-	if (!(z % 2))
-		return (s)(z / 2);
-	return -(s)((x - 1) / 2) - 1;
-}
+struct TypeHash;
+class SerializableMetadata;
 
 class DeserializerStream{
 	typedef std::uint32_t objectid_t;
@@ -48,12 +51,90 @@ class DeserializerStream{
 		this->correct[(uintptr_t)p] = smart_ptr_freer_pair_t(sp, [](void *p){ delete (T *)p; });
 		t = *sp;
 	}
+	template <typename SetT, typename ValueT>
+	typename std::enable_if<is_simply_constructible<ValueT>::value, void>::type deserialize_setlike(SetT &s){
+		s.clear();
+		wire_size_t size;
+		this->deserialize(size);
+		while (s.size() != (size_t)size){
+			ValueT temp;
+			this->deserialize(temp);
+			s.insert(std::move(temp));
+		}
+	}
+	template <typename SetT, typename ValueT>
+	typename std::enable_if<is_serializable<ValueT>::value, void>::type deserialize_setlike(SetT &s){
+		s.clear();
+		wire_size_t size;
+		this->deserialize(size);
+		while (s.size() != (size_t)size)
+			s.emplace(*this);
+	}
+	template <typename MapT, typename KeyT, typename ValueT>
+	typename std::enable_if<
+		is_simply_constructible<KeyT>::value &&
+		is_simply_constructible<ValueT>::value,
+		void
+	>::type deserialize_maplike(MapT &m){
+		m.clear();
+		wire_size_t size;
+		this->deserialize(size);
+		while (m.size() != (size_t)size){
+			KeyT ktemp;
+			ValueT vtemp;
+			this->deserialize(ktemp);
+			this->deserialize(vtemp);
+			m[ktemp] = vtemp;
+		}
+	}
+	template <typename MapT, typename KeyT, typename ValueT>
+	typename std::enable_if<
+		is_simply_constructible<KeyT>::value &&
+		is_serializable<ValueT>::value,
+		void
+	>::type deserialize_maplike(MapT &m){
+		m.clear();
+		wire_size_t size;
+		this->deserialize(size);
+		while (m.size() != (size_t)size){
+			KeyT ktemp;
+			this->deserialize(ktemp);
+			m.emplace(std::pair<KeyT &, decltype(*this) &>(ktemp, *this));
+		}
+	}
+	template <typename MapT, typename KeyT, typename ValueT>
+	typename std::enable_if<
+		is_serializable<KeyT>::value &&
+		is_simply_constructible<ValueT>::value,
+		void
+	>::type deserialize_maplike(MapT &m){
+		m.clear();
+		wire_size_t size;
+		this->deserialize(size);
+		typedef decltype(*this) DS;
+		proxy_constructor<DS> proxy(*this);
+		while (m.size() != (size_t)size)
+			m.emplace(std::pair<DS &, decltype(proxy) &>(*this, proxy));
+	}
+	template <typename MapT, typename KeyT, typename ValueT>
+	typename std::enable_if<
+		is_serializable<KeyT>::value &&
+		is_serializable<ValueT>::value,
+		void
+	>::type deserialize_maplike(MapT &m){
+		m.clear();
+		wire_size_t size;
+		this->deserialize(size);
+		typedef decltype(*this) DS;
+		while (m.size() != (size_t)size)
+			m.emplace(std::pair<DS &, DS &>(*this, *this));
+	}
 public:
 	DeserializerStream(std::istream &);
 	template <typename Target>
 	Target *begin_deserialization(bool includes_typehashes = false){
 		auto metadata = Target::static_get_metadata();
-		auto p = this->begin_serialization(*metadata, includes_typehashes);
+		auto p = this->begin_deserialization(*metadata, includes_typehashes);
 		auto ret = dynamic_cast<Target *>(p);
 		if (!ret)
 			delete p;
@@ -69,7 +150,9 @@ public:
 	}
 	template <typename T>
 	void deserialize(T *&t){
-		this->deserialize_id(t);
+		void *temp;
+		this->deserialize_id(temp);
+		t = (T *)temp;
 	}
 	template <typename T>
 	void deserialize(std::shared_ptr<T> &t){
@@ -85,7 +168,7 @@ public:
 	}
 	template <typename T, size_t N>
 	void deserialize(T (&array)[N]){
-		for (const auto &e : array)
+		for (auto &e : array)
 			this->deserialize(e);
 	}
 	void deserialize(std::uint8_t &c){
@@ -129,10 +212,10 @@ public:
 
 		const std::uint8_t more_mask = 0x80;
 		const std::uint8_t mask = ~more_mask;
+		std::uint8_t byte;
 		do {
-			std::uint8_t byte;
 			this->deserialize(byte);
-			n << = shift;
+			n <<= shift;
 			n |= byte & mask;
 		}while ((byte & more_mask) == more_mask);
 	}
@@ -144,85 +227,43 @@ public:
 		this->deserialize_fixed(*(const u *)&x);
 	}
 	template <typename T>
-	void deserialize(const std::basic_string<T> &s){
-		std::uint32_t size;
+	void deserialize(std::basic_string<T> &s){
+		wire_size_t size;
 		this->deserialize(size);
-		s.resize(size, 0);
-		for (std::uint32_t i = 0; i != size; i++){
+		s.resize((size_t)size, (T)'0');
+		for (size_t i = 0; i != (size_t)size; i++){
 			typename std::make_unsigned<T>::type c;
 			this->deserialize(c);
 			s[i] = c;
 		}
 	}
 	template <typename T>
-	std::enable_if<
-		std::is_fundamental<T>::value /**/
-	void deserialize(std::vector<T> &v){
+	typename std::enable_if<is_simply_constructible<T>::value, void>::type deserialize(std::vector<T> &v){
 		v.clear();
-		std::uint32_t size;
+		wire_size_t size;
 		this->deserialize(size);
 		v.reserve(size);
-		while (v.size() != size){
-			char buffer;
-			T temp;
-			this->deserialize(temp);
-			v.push_back(temp);
+		while (v.size() != (size_t)size){
+			v.resize(v.size() + 1);
+			this->deserialize(v.back());
 		}
 	}
 	template <typename T>
-	void deserialize(std::vector<T> &v){
+	typename std::enable_if<is_serializable<T>::value, void>::type deserialize(std::vector<T> &v){
 		v.clear();
-		std::uint32_t size;
+		wire_size_t size;
 		this->deserialize(size);
-		v.reserve(size);
-		while (v.size() != size){
-			char buffer;
-			T temp;
-			this->deserialize(temp);
-			v.push_back(temp);
-		}
-	}
-	template <typename SetT>
-	void deserialize_setlike(SetT &s){
-		s.clear();
-		std::uint32_t size;
-		this->deserialize(size);
-		while (s.size() != size){
-			SetT temp;
-			this->deserialize(temp);
-			s.insert(temp);
-		}
+		v.reserve((size_t)size);
+		while (v.size() != (size_t)size)
+			v.emplace_back(*this);
 	}
 	template <typename T>
-	void deserialize(std::set<T> &s){
-		this->deserialize_setlike(s);
+	typename std::enable_if<is_setlike<T>::value, void>::type deserialize(T &s){
+		this->deserialize_setlike<T, typename T::value_type>(s);
 	}
 	template <typename T>
-	void serialize(std::unordered_set<T> &s){
-		this->deserialize_setlike(s);
-	}
-	template <typename MapT>
-	void serialize_maplike(MapT &m){
-		typedef typename MapT::key_type kt;
-		typedef typename MapT::mapped_type vt;
-		m.clear();
-		std::uint32_t size;
-		this->deserialize(size);
-		while (s.size() != size){
-			kt key;
-			vt
-			T temp;
-			this->deserialize(temp);
-			s.insert(temp);
-		}
-	}
-	template <typename T1, typename T2>
-	void serialize(const std::map<T1, T2> &s){
-		this->serialize_maplike(s.begin(), s.end(), s.size());
-	}
-	template <typename T1, typename T2>
-	void serialize(const std::unordered_map<T1, T2> &s){
-		this->serialize_maplike(s.begin(), s.end(), s.size());
+	typename std::enable_if<is_maplike<T>::value, void>::type deserialize(T &s){
+		this->deserialize_maplike<T, typename T::key_type, typename T::mapped_type>(s);
 	}
 };
 

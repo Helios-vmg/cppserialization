@@ -11,9 +11,6 @@
 #include <boost/format.hpp>
 #endif
 
-std::string metadata_function_name;
-std::string allocator_function_name;
-std::string constructor_function_name;
 std::mt19937_64 rng;
 std::uint64_t random_function_name = 0;
 
@@ -27,20 +24,18 @@ void get_randomized_function_name(std::string &name, const char *custom_part){
 	name = stream.str();
 }
 
-std::string get_metadata_function_name(){
-	get_randomized_function_name(metadata_function_name, "get_metadata_");
-	return metadata_function_name;
-}
+#define DEFINE_get_X_function_name(x)                            \
+	std::string x##_function_name;                               \
+	std::string get_##x##_function_name(){                       \
+		get_randomized_function_name(x##_function_name, #x "_"); \
+		return x##_function_name;                                \
+	}
 
-std::string get_allocator_function_name(){
-	get_randomized_function_name(allocator_function_name, "allocator_");
-	return allocator_function_name;
-}
-
-std::string get_constructor_function_name(){
-	get_randomized_function_name(constructor_function_name, "constructor_");
-	return constructor_function_name;
-}
+DEFINE_get_X_function_name(get_metadata)
+DEFINE_get_X_function_name(allocator)
+DEFINE_get_X_function_name(constructor)
+DEFINE_get_X_function_name(rollbacker)
+DEFINE_get_X_function_name(is_serializable)
 
 std::string IntegerType::get_type_string() const{
 	std::stringstream stream;
@@ -52,6 +47,21 @@ std::string ArrayType::get_type_string() const{
 	std::stringstream stream;
 	stream << this->inner->get_type_string() << '[' << this->length << ']';
 	return stream.str();
+}
+
+void ArrayType::generate_deserializer(std::ostream &stream, const char *deserializer_name, const char *pointer_name) const{
+	stream << "{\n";
+	this->output(stream);
+	stream << " *temp = (";
+	this->output(stream);
+	stream << " *)" << pointer_name << ";\n"
+		"for (size_t i = 0; i != " << this->length << "; i++){\n"
+		"new (temp + i) ";
+	this->output(stream);
+	stream << ";\n"
+		<< deserializer_name << ".deserialize(temp[i]);\n"
+		"}\n"
+		"}\n";
 }
 
 template <typename T>
@@ -76,6 +86,26 @@ void generate_for_collection(variable_formatter &format, const std::string &next
 		i->generate_pointer_enumerator(subcallback, next_name);
 	if (any)
 		callback(format << "contents" << accum, CallMode::AddVerbatim);
+}
+
+void Type::generate_deserializer(std::ostream &stream, const char *deserializer_name, const char *pointer_name) const{
+	stream << "{\n";
+	this->output(stream);
+	stream << " *temp = (";
+	this->output(stream);
+	stream << " *)" << pointer_name << ";\n"
+		"new (temp) ";
+	this->output(stream);
+	stream << ";\n"
+		<< deserializer_name << ".deserialize(*temp);\n"
+		"}\n";
+}
+
+void Type::generate_rollbacker(std::ostream &stream, const char *pointer_name) const{
+}
+
+void Type::generate_is_serializable(std::ostream &stream) const{
+	stream << "return false;\n";
 }
 
 void ArrayType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
@@ -174,6 +204,7 @@ void UserClass::generate_header(std::ostream &stream) const{
 		"virtual TypeHash get_type_hash() const override;\n"
 		"virtual std::shared_ptr<SerializableMetadata> get_metadata() const override;\n"
 		"static std::shared_ptr<SerializableMetadata> static_get_metadata();\n"
+		"virtual void rollback_deserialization() override;\n"
 		"}};\n";
 	stream << (std::string)(variable_formatter(format) << "name" << this->name);
 }
@@ -250,14 +281,73 @@ void UserClass::generate_get_type_hash(std::ostream &stream) const{
 }
 
 void UserClass::generate_get_metadata(std::ostream &stream) const{
-	stream << "return " << get_metadata_function_name() << "();\n";
+	stream << "return " << get_get_metadata_function_name() << "();\n";
+}
+
+void UserClass::generate_deserializer(std::ostream &stream) const{
+	bool first = true;
+	for (auto &b : this->base_classes){
+		if (!first)
+			stream << ", ";
+		else{
+			stream << ": ";
+			first = false;
+		}
+		stream << b->get_name() << "::" << b->get_name() << "(ss)\n";
+	}
+	
+	for (auto &e : this->elements){
+		auto casted = std::dynamic_pointer_cast<ClassMember>(e);
+		if (!casted)
+			continue;
+		if (!first)
+			stream << ", ";
+		else{
+			stream << ": ";
+			first = false;
+		}
+		stream << casted->get_name() << "(";
+		auto type = casted->get_type();
+		if (std::dynamic_pointer_cast<UserClass>(type))
+			stream << "ds";
+		else
+			stream << "proxy_constructor<" << type << ">(ds)";
+		stream << ")\n";
+	}
+	stream << "{}";
+}
+
+void UserClass::generate_deserializer(std::ostream &stream, const char *deserializer_name, const char *pointer_name) const{
+	stream << "{\n";
+	this->output(stream);
+	stream << " *temp = (";
+	this->output(stream);
+	stream << " *)" << pointer_name << ";\n"
+		"new (temp) ";
+	this->output(stream);
+	stream << "(" << deserializer_name << ");\n"
+		"}\n";
+}
+
+void UserClass::generate_rollbacker(std::ostream &stream, const char *pointer_name) const{
+	stream << "{\n";
+	this->output(stream);
+	stream << " *temp = (";
+	this->output(stream);
+	stream << " *)" << pointer_name << ";\n"
+		"temp->rollback_deserialization();\n"
+		"}\n";
+}
+
+void UserClass::generate_is_serializable(std::ostream &stream) const{
+	stream << "return true;\n";
 }
 
 void UserClass::generate_source(std::ostream &stream) const{
 	static const char *format =
-		"{name}::{name}(DeserializerStream &ds){{\n"
+		"{name}::{name}(DeserializerStream &ds)\n"
 		"{ctor}"
-		"}}\n"
+		"\n"
 		"\n"
 		"void {name}::get_object_node(std::vector<ObjectNode> &v) const{{\n"
 		"{gon}"
@@ -286,7 +376,7 @@ void UserClass::generate_source(std::ostream &stream) const{
 	variable_formatter vf = format;
 	vf
 		<< "name" << this->name
-		<< "ctor" << ""
+		<< "ctor" << this->generate_deserializer()
 		<< "gon" << this->generate_get_object_node2()
 		<< "ser" << this->generate_serialize()
 		<< "gti" << ("return " + utoa(this->get_type_id()) + ";")
@@ -405,7 +495,7 @@ void CppFile::generate_header(){
 }
 
 std::string generate_get_metadata_signature(){
-	return "std::shared_ptr<SerializableMetadata> " + get_metadata_function_name() + "()";
+	return "std::shared_ptr<SerializableMetadata> " + get_get_metadata_function_name() + "()";
 }
 
 void CppFile::generate_source(){
@@ -450,16 +540,39 @@ void CppFile::generate_constructor(std::ostream &stream){
 	stream << "void " << get_constructor_function_name() << "(std::uint32_t type, void *s, DeserializerStream &ds){\n"
 		"switch (type){\n";
 	for (auto &kv : this->type_map){
-		stream <<
-			"case " << kv.first << ":\n"
-			"ds.deserialize((";
-		kv.second->output(stream);
-		stream << " *)s);\n"
-			"break;";
+		stream << "case " << kv.first << ":\n";
+		kv.second->generate_deserializer(stream, "ds", "s");
+		stream << "break;\n";
 	}
 	stream <<
 		"}\n"
-		"return nullptr;"
+		"}\n";
+}
+
+void CppFile::generate_rollbacker(std::ostream &stream){
+	stream << "void " << get_rollbacker_function_name() << "(std::uint32_t type, void *s){\n"
+		"switch (type){\n";
+	for (auto &kv : this->type_map){
+		stream << "case " << kv.first << ":\n";
+		kv.second->generate_rollbacker(stream, "s");
+		stream << "break;\n";
+	}
+	stream <<
+		"}\n"
+		"}\n";
+}
+
+void CppFile::generate_is_serializable(std::ostream &stream){
+	stream << "bool " << get_is_serializable_function_name() << "(std::uint32_t type){\n"
+		"switch (type){\n";
+	for (auto &kv : this->type_map){
+		stream << "case " << kv.first << ":\n";
+		kv.second->generate_is_serializable(stream);
+		stream << "break;\n";
+	}
+	stream <<
+		"}\n"
+		"return false;\n"
 		"}\n";
 }
 
@@ -470,8 +583,9 @@ void CppFile::generate_aux(){
 
 	std::string array_name = this->get_name() + "_id_hashes";
 
-	file <<
+	file << 
 		"#include \"Serializable.h\"\n"
+		"#include \"" << this->name << ".generated.h\"\n"
 		"#include <utility>\n"
 		"#include <cstdint>\n"
 		"\n"
@@ -487,11 +601,20 @@ void CppFile::generate_aux(){
 	this->generate_allocator(file);
 	file << "\n";
 	this->generate_constructor(file);
+	file << "\n";
+	this->generate_rollbacker(file);
+	file << "\n";
+	this->generate_is_serializable(file);
 	file <<
 		"\n"
 		<< generate_get_metadata_signature() << "{\n"
 			"std::shared_ptr<SerializableMetadata> ret(new SerializableMetadata);\n"
-			"ret->set_functions(" << get_allocator_function_name() << ", " << get_constructor_function_name() <<");\n"
+			"ret->set_functions("
+				<< get_allocator_function_name() << ", "
+				<< get_constructor_function_name() << ", "
+				<< get_rollbacker_function_name() << ", "
+				<< get_is_serializable_function_name()
+			<<");\n"
 			"for (auto &p : " << array_name << ")\n"
 				"ret->add_type(p.first, p.second);\n"
 			"return ret;\n"

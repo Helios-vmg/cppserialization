@@ -43,7 +43,7 @@ void SerializerStream::begin_serialization(const Serializable &obj, bool include
 			this->serialize_array(i.second.digest);
 		}
 	}
-	this->serialize((std::uint32_t)this->node_map.size())
+	this->serialize((std::uint32_t)this->node_map.size());
 	for (auto &n : this->node_map){
 		this->serialize(n.first);
 		this->serialize(n.second.get_typeid());

@@ -30,6 +30,12 @@
     <ClCompile Include="$(SolutionDir)\postsrc\SerializerStream.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="$(SolutionDir)\postsrc\DeserializerStream.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\postsrc\Serializable.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(ProjectDir)\testtype.generated.h">

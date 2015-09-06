@@ -10,6 +10,9 @@ class DeserializerStream;
 
 struct TypeHash{
 	unsigned char digest[32];
+	TypeHash(){
+		memset(digest, 0, sizeof(digest));
+	}
 	TypeHash(const unsigned char (&digest)[32]){
 		memcpy(this->digest, digest, 32);
 	}
@@ -57,7 +60,7 @@ inline ObjectNode get_object_node(const Serializable *serializable){
 
 class SerializableMetadata{
 public:
-	typedef std::function<Serializable *(std::uint32_t)> allocator_t;
+	typedef std::function<void *(std::uint32_t)> allocator_t;
 	typedef std::function<void(std::uint32_t, void *, DeserializerStream &)> constructor_t;
 	typedef std::function<void(std::uint32_t, void *)> rollbacker_t;
 	typedef std::function<bool(std::uint32_t)> is_serializable_t;

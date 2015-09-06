@@ -58,6 +58,9 @@ public:
 			set.insert((std::string)header);
 	}
 	virtual void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{}
+	virtual void generate_deserializer(std::ostream &stream, const char *deserializer_name, const char *pointer_name) const;
+	virtual void generate_rollbacker(std::ostream &stream, const char *pointer_name) const;
+	virtual void generate_is_serializable(std::ostream &stream) const;
 	std::uint32_t get_type_id() const{
 		return this->type_id;
 	}
@@ -241,6 +244,7 @@ public:
 	}
 	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
 	std::string get_type_string() const override;
+	void generate_deserializer(std::ostream &stream, const char *deserializer_name, const char *pointer_name) const override;
 };
 
 class PointerType : public NestedType{
@@ -554,6 +558,7 @@ public:
 	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
 	void generate_serialize(std::ostream &) const;
 	void generate_get_metadata(std::ostream &) const;
+	void generate_deserializer(std::ostream &) const;
 	std::string get_type_string() const override{
 		return this->name;
 	}
@@ -569,6 +574,10 @@ public:
 	DEFINE_GENERATE_OVERLOAD(generate_serialize)
 	DEFINE_GENERATE_OVERLOAD(generate_get_type_hash)
 	DEFINE_GENERATE_OVERLOAD(generate_get_metadata)
+	DEFINE_GENERATE_OVERLOAD(generate_deserializer)
+	void generate_deserializer(std::ostream &stream, const char *deserializer_name, const char *pointer_name) const override;
+	void generate_rollbacker(std::ostream &stream, const char *pointer_name) const override;
+	void generate_is_serializable(std::ostream &stream) const override;
 };
 
 class CppFile{
@@ -597,6 +606,8 @@ public:
 	void generate_aux();
 	void generate_allocator(std::ostream &);
 	void generate_constructor(std::ostream &);
+	void generate_rollbacker(std::ostream &);
+	void generate_is_serializable(std::ostream &);
 };
 
 class UserInclude : public CppElement, public ClassElement{

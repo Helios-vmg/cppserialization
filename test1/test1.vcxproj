@@ -83,6 +83,8 @@
     <ClCompile Include="$(SolutionDir)\postsrc\SerializerStream.cpp" />
     <ClCompile Include="$(ProjectDir)\main.cpp" />
     <ClCompile Include="$(ProjectDir)\testtype.cpp" />
+    <ClCompile Include="$(SolutionDir)\postsrc\DeserializerStream.cpp" />
+    <ClCompile Include="$(SolutionDir)\postsrc\Serializable.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(ProjectDir)\testtype.generated.h" />
