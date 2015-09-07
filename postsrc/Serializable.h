@@ -60,10 +60,10 @@ inline ObjectNode get_object_node(const Serializable *serializable){
 
 class SerializableMetadata{
 public:
-	typedef std::function<void *(std::uint32_t)> allocator_t;
-	typedef std::function<void(std::uint32_t, void *, DeserializerStream &)> constructor_t;
-	typedef std::function<void(std::uint32_t, void *)> rollbacker_t;
-	typedef std::function<bool(std::uint32_t)> is_serializable_t;
+	typedef void *(*allocator_t)(std::uint32_t);
+	typedef void (*constructor_t)(std::uint32_t, void *, DeserializerStream &);
+	typedef void (*rollbacker_t)(std::uint32_t, void *);
+	typedef bool (*is_serializable_t)(std::uint32_t);
 private:
 	std::vector<std::pair<std::uint32_t, TypeHash> > known_types;
 	//Used for deserialization.
