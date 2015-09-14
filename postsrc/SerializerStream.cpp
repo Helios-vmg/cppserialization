@@ -22,20 +22,26 @@ SerializerStream::objectid_t SerializerStream::save_object(const void *p){
 
 void SerializerStream::begin_serialization(const Serializable &obj, bool include_typehashes){
 	auto node = obj.get_object_node();
-	std::stack<decltype(node)> stack;
-	stack.push(node);
+#ifdef _DEBUG
+	std::clog << "Traversing reference graph...\n";
+#endif
+	std::vector<decltype(node)> stack;
+	stack.push_back(node);
 	while (stack.size()){
-		auto top = stack.top();
-		stack.pop();
+		auto top = stack.back();
+		stack.pop_back();
 		auto id = this->save_object(top.address);
 		if (!id)
 			continue;
 		auto it = top.get_children();
 		while (it.next())
-			stack.push(*it);
+			stack.push_back(*it);
 		this->node_map[id] = top;
 	}
 	if (include_typehashes){
+#ifdef _DEBUG
+		std::clog << "Serializing type hashes...\n";
+#endif
 		auto list = obj.get_metadata()->get_known_types();
 		this->serialize((std::uint32_t)list.size());
 		for (auto &i : list){
@@ -43,11 +49,20 @@ void SerializerStream::begin_serialization(const Serializable &obj, bool include
 			this->serialize_array(i.second.digest);
 		}
 	}
+#ifdef _DEBUG
+	std::clog << "Serializing node map...\n";
+#endif
 	this->serialize((std::uint32_t)this->node_map.size());
 	for (auto &n : this->node_map){
 		this->serialize(n.first);
 		this->serialize(n.second.get_typeid());
 	}
+#ifdef _DEBUG
+	std::clog << "Serializing nodes...\n";
+#endif
 	for (auto &n : this->node_map)
 		n.second.serialize(*this);
+#ifdef _DEBUG
+	std::clog << "Serialization done!\n";
+#endif
 }

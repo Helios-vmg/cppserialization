@@ -242,7 +242,7 @@ public:
 		v.clear();
 		wire_size_t size;
 		this->deserialize(size);
-		v.reserve(size);
+		v.reserve((size_t)size);
 		while (v.size() != (size_t)size){
 			v.resize(v.size() + 1);
 			this->deserialize(v.back());

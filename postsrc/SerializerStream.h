@@ -124,20 +124,29 @@ public:
 	typename std::enable_if<std::is_unsigned<T>::value, void>::type serialize(T n){
 		static_assert(CHAR_BIT == 8, "Only 8-bit byte platforms supported!");
 
-		const unsigned shift = sizeof(n) * 8 - 7;
-		std::uint8_t buffer[(sizeof(n) * 8 + 6) / 7 * 2]; //times 2 for safety
+		if (!n){
+			this->serialize((std::uint8_t)0);
+			return;
+		}
+
+		auto input = n;
+
+		const unsigned shift = 7;
+		const size_t capacity = (sizeof(n) * 8 + 6) / 7 * 2;
+		std::uint8_t buffer[capacity]; //times 2 for safety
+		const std::uint8_t mask = 0x7F;
+
 		size_t buffer_size = 0;
 
-		const std::uint8_t mask = 0x7F;
-		while (n > mask){
-			std::uint8_t m = n >> shift;
-			n <<= 7;
+		while (n > 0){
+			std::uint8_t m = n & mask;
+			n >>= shift;
 			m &= mask;
 			m |= ~mask;
-			buffer[buffer_size++] = m;
+			buffer[capacity - 1 - buffer_size++] = m;
 		}
-		buffer[buffer_size++] = (std::uint8_t)n;
-		this->stream->write((const char *)buffer, buffer_size);
+		buffer[capacity - 1] &= mask;
+		this->stream->write((const char *)buffer + (capacity - buffer_size), buffer_size);
 	}
 	template <typename T>
 	typename std::enable_if<std::is_floating_point<T>::value, void>::type serialize(const T &x){
@@ -148,19 +157,19 @@ public:
 	}
 	template <typename T>
 	void serialize(const std::basic_string<T> &s){
-		this->serialize((std::uint32_t)s.size());
+		this->serialize((wire_size_t)s.size());
 		for (typename std::make_unsigned<T>::type c : s)
 			this->serialize(c);
 	}
 	template <typename It>
 	void serialize_sequence(It begin, It end, size_t length){
-		this->serialize((std::uint32_t)length);
+		this->serialize((wire_size_t)length);
 		for (; begin != end; ++begin)
 			this->serialize(*begin);
 	}
 	template <typename It>
 	void serialize_maplike(It begin, It end, size_t length){
-		this->serialize((std::uint32_t)length);
+		this->serialize((wire_size_t)length);
 		for (; begin != end; ++begin){
 			this->serialize(begin->first);
 			this->serialize(begin->second);
