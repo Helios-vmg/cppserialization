@@ -31,3 +31,4 @@ _ReSharper*/
 *.opensdf
 *.generated.*
 *.ipch
+bin64/*
