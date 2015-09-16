@@ -28,28 +28,45 @@ Serializable *DeserializerStream::begin_deserialization(SerializableMetadata &me
 		if (includes_typehashes)
 			metadata.set_type_mappings(this->read_typehashes());
 		this->state = State::Safe;
-		std::uint32_t size;
+
+		std::vector<std::pair<std::uint32_t, objectid_t>> type_map;
+		wire_size_t size;
 		this->deserialize(size);
+		type_map.reserve((size_t)size);
+		for (auto i = size; size--;){
+			std::uint32_t type_id;
+			objectid_t object_id;
+			this->deserialize(type_id);
+			this->deserialize(object_id);
+			type_map.push_back(std::make_pair(type_id, object_id));
+		}
+
+		objectid_t root_object_id;
+		this->deserialize(root_object_id);
+
 		this->state = State::AllocatingMemory;
 		std::uint32_t main_object_type = 0;
-		for (auto i = size; i--;){
-			objectid_t object_id;
-			std::uint32_t type_id;
-			this->deserialize(object_id);
-			this->deserialize(type_id);
-			object_types[object_id] = type_id;
-			auto mem = metadata.allocate_memory(type_id);
-			if (!main_object){
-				main_object = mem;
-				main_object_type = type_id;
-			}
-			try{
-				this->node_map[object_id] = mem;
-			}catch (...){
-				::operator delete(mem);
-				throw;
+		{
+			objectid_t object_id = 1;
+			for (auto &p : type_map){
+				std::uint32_t type_id = p.first;
+				for (; object_id <= p.second; object_id++){
+					object_types[object_id] = type_id;
+					auto mem = metadata.allocate_memory(type_id);
+					if (!main_object && object_id == root_object_id){
+						main_object = mem;
+						main_object_type = type_id;
+					}
+					try{
+						this->node_map[object_id] = mem;
+					}catch (...){
+						::operator delete(mem);
+						throw;
+					}
+				}
 			}
 		}
+
 		this->state = State::InitializingObjects;
 		for (auto &kv : this->node_map){
 			auto type = object_types[kv.first];
