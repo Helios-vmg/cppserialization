@@ -74,46 +74,46 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="$(SolutionDir)\src\las.cpp" />
-    <ClCompile Include="$(SolutionDir)\src\main.cpp" />
-    <ClCompile Include="$(SolutionDir)\src\tinyxml2\tinyxml2.cpp">
+    <ClCompile Include="..\src\las.cpp" />
+    <ClCompile Include="..\src\main.cpp" />
+    <ClCompile Include="..\src\tinyxml2\tinyxml2.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="$(SolutionDir)\src\sha256.c">
+    <ClCompile Include="..\src\sha256.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="$(SolutionDir)\src\typehash.cpp" />
-    <ClCompile Include="$(SolutionDir)\src\stdafx.cpp">
+    <ClCompile Include="..\src\typehash.cpp" />
+    <ClCompile Include="..\src\stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="$(SolutionDir)\postsrc\DeserializerStream.cpp">
+    <ClCompile Include="..\postsrc\DeserializerStream.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="$(SolutionDir)\postsrc\Serializable.cpp">
+    <ClCompile Include="..\postsrc\Serializable.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="$(SolutionDir)\postsrc\SerializerStream.cpp">
+    <ClCompile Include="..\postsrc\SerializerStream.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="$(SolutionDir)\src\las.h" />
-    <ClInclude Include="$(SolutionDir)\src\tinyxml2\tinyxml2.h" />
-    <ClInclude Include="$(SolutionDir)\postsrc\serialization_utils.h" />
-    <ClInclude Include="$(SolutionDir)\postsrc\SerializerStream.h" />
-    <ClInclude Include="$(SolutionDir)\postsrc\Serializable.h" />
-    <ClInclude Include="$(SolutionDir)\src\util.h" />
-    <ClInclude Include="$(SolutionDir)\src\sha256.h" />
-    <ClInclude Include="$(SolutionDir)\src\typehash.h" />
-    <ClInclude Include="$(SolutionDir)\src\variable_formatter.h" />
-    <ClInclude Include="$(SolutionDir)\postsrc\DeserializerStream.h" />
-    <ClInclude Include="$(SolutionDir)\src\stdafx.h" />
+    <ClInclude Include="..\src\las.h" />
+    <ClInclude Include="..\src\tinyxml2\tinyxml2.h" />
+    <ClInclude Include="..\postsrc\serialization_utils.h" />
+    <ClInclude Include="..\postsrc\SerializerStream.h" />
+    <ClInclude Include="..\postsrc\Serializable.h" />
+    <ClInclude Include="..\src\util.h" />
+    <ClInclude Include="..\src\sha256.h" />
+    <ClInclude Include="..\src\typehash.h" />
+    <ClInclude Include="..\src\variable_formatter.h" />
+    <ClInclude Include="..\postsrc\DeserializerStream.h" />
+    <ClInclude Include="..\src\stdafx.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

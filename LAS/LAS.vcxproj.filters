@@ -21,66 +21,66 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="$(SolutionDir)\src\las.cpp">
+    <ClCompile Include="..\src\las.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="$(SolutionDir)\src\main.cpp">
+    <ClCompile Include="..\src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="$(SolutionDir)\src\tinyxml2\tinyxml2.cpp">
+    <ClCompile Include="..\src\tinyxml2\tinyxml2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="$(SolutionDir)\src\sha256.c">
+    <ClCompile Include="..\src\sha256.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="$(SolutionDir)\src\typehash.cpp">
+    <ClCompile Include="..\src\typehash.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="$(SolutionDir)\src\stdafx.cpp">
+    <ClCompile Include="..\src\stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="$(SolutionDir)\postsrc\DeserializerStream.cpp">
+    <ClCompile Include="..\postsrc\DeserializerStream.cpp">
       <Filter>Source Files\postsrc</Filter>
     </ClCompile>
-    <ClCompile Include="$(SolutionDir)\postsrc\Serializable.cpp">
+    <ClCompile Include="..\postsrc\Serializable.cpp">
       <Filter>Source Files\postsrc</Filter>
     </ClCompile>
-    <ClCompile Include="$(SolutionDir)\postsrc\SerializerStream.cpp">
+    <ClCompile Include="..\postsrc\SerializerStream.cpp">
       <Filter>Source Files\postsrc</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="$(SolutionDir)\src\las.h">
+    <ClInclude Include="..\src\las.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="$(SolutionDir)\src\tinyxml2\tinyxml2.h">
+    <ClInclude Include="..\src\tinyxml2\tinyxml2.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="$(SolutionDir)\postsrc\serialization_utils.h">
+    <ClInclude Include="..\postsrc\serialization_utils.h">
       <Filter>Header Files\postsrc</Filter>
     </ClInclude>
-    <ClInclude Include="$(SolutionDir)\postsrc\SerializerStream.h">
+    <ClInclude Include="..\postsrc\SerializerStream.h">
       <Filter>Header Files\postsrc</Filter>
     </ClInclude>
-    <ClInclude Include="$(SolutionDir)\postsrc\Serializable.h">
+    <ClInclude Include="..\postsrc\Serializable.h">
       <Filter>Header Files\postsrc</Filter>
     </ClInclude>
-    <ClInclude Include="$(SolutionDir)\src\util.h">
+    <ClInclude Include="..\src\util.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="$(SolutionDir)\src\typehash.h">
+    <ClInclude Include="..\src\typehash.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="$(SolutionDir)\src\sha256.h">
+    <ClInclude Include="..\src\sha256.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="$(SolutionDir)\src\variable_formatter.h">
+    <ClInclude Include="..\src\variable_formatter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="$(SolutionDir)\postsrc\DeserializerStream.h">
+    <ClInclude Include="..\postsrc\DeserializerStream.h">
       <Filter>Header Files\postsrc</Filter>
     </ClInclude>
-    <ClInclude Include="$(SolutionDir)\src\stdafx.h">
+    <ClInclude Include="..\src\stdafx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
