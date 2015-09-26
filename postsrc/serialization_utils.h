@@ -213,14 +213,6 @@ ObjectNode get_object_node(const std::shared_ptr<T> &n){
 typedef std::uint64_t wire_size_t;
 
 template <typename T>
-typename std::make_unsigned<T>::type uints_to_ints(T n){
-	typedef typename std::make_signed<T>::type s;
-	if (!(z % 2))
-		return (s)(z / 2);
-	return -(s)((x - 1) / 2) - 1;
-}
-
-template <typename T>
 struct is_basic_type{
 	static const bool value = std::is_fundamental<T>::value || std::is_pointer<T>::value;
 };
@@ -265,8 +257,22 @@ struct is_container{
 };
 
 template <typename T>
+struct is_string{
+	static const bool value = false;
+};
+
+template <typename T>
+struct is_string<std::basic_string<T>>{
+	static const bool value = true;
+};
+
+template <typename T>
 struct is_simply_constructible{
-	static const bool value = is_basic_type<T>::value || is_smart_ptr<T>::value || is_container<T>::value;
+	static const bool value =
+		is_basic_type<T>::value ||
+		is_smart_ptr<T>::value ||
+		is_container<T>::value ||
+		is_string<T>::value;
 };
 
 template <typename T>

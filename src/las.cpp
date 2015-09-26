@@ -45,7 +45,7 @@ std::string IntegerType::get_type_string() const{
 
 std::string ArrayType::get_type_string() const{
 	std::stringstream stream;
-	stream << this->inner->get_type_string() << '[' << this->length << ']';
+	stream << "std::array< " << this->inner->get_type_string() << ", " << this->length << ">";
 	return stream.str();
 }
 

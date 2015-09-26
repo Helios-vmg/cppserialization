@@ -237,14 +237,17 @@ class ArrayType : public NestedType{
 public:
 	ArrayType(const std::shared_ptr<Type> &inner, size_t n): NestedType(inner), length(n){}
 	std::ostream &output(std::ostream &stream) const override{
-		return stream << this->inner << "[" << this->length << "]";
+		return stream << "std::array< " << this->inner << ", " << this->length << ">";
 	}
 	std::ostream &output(std::ostream &stream, const std::string &name) const override{
-		return stream << this->inner << " " << name << "[" << this->length << "]";
+		return stream << "std::array< " << this->inner << ", " << this->length << "> " << name;
 	}
 	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
 	std::string get_type_string() const override;
 	void generate_deserializer(std::ostream &stream, const char *deserializer_name, const char *pointer_name) const override;
+	const char *header() const override{
+		return "<array>";
+	}
 };
 
 class PointerType : public NestedType{

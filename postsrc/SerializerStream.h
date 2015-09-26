@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <stack>
 #include <climits>
+#include <array>
 #include "serialization_utils.h"
 
 class Serializable;
@@ -89,10 +90,11 @@ public:
 	}
 	template <typename T, size_t N>
 	void serialize_array(const T (&array)[N]){
-		this->serialize<T, N>(array);
+		for (const auto &e : array)
+			this->serialize(e);
 	}
 	template <typename T, size_t N>
-	void serialize(const T (&array)[N]){
+	void serialize(const std::array<T, N> &array){
 		for (const auto &e : array)
 			this->serialize(e);
 	}
@@ -194,6 +196,10 @@ public:
 	template <typename T1, typename T2>
 	void serialize(const std::unordered_map<T1, T2> &s){
 		this->serialize_maplike(s.begin(), s.end(), s.size());
+	}
+	template <typename T>
+	typename std::enable_if<std::is_base_of<Serializable, T>::value, void>::type serialize(const T &serializable){
+		serializable.serialize(*this);
 	}
 };
 

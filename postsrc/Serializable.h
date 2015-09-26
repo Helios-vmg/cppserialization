@@ -4,6 +4,7 @@
 #include "serialization_utils.h"
 #include "SerializerStream.h"
 #include <utility>
+#include <array>
 
 class SerializerStream;
 class DeserializerStream;
