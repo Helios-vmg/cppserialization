@@ -461,6 +461,13 @@ void CppFile::generate_header(){
 	this->assign_type_ids();
 
 	std::ofstream file((this->get_name() + ".generated.h").c_str());
+
+	file <<
+		"#ifdef _MSC_VER\n"
+		"#pragma once\n"
+		"#endif\n"
+		"\n";
+
 	std::set<std::string> includes;
 	for (auto &c : this->classes)
 		c.second->add_headers(includes);
