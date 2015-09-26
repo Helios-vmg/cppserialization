@@ -289,7 +289,7 @@ struct proxy_constructor{
 	operator T() const{
 		T temp;
 		this->ds.deserialize(temp);
-		return temp;
+		return std::move(temp);
 	}
 };
 
