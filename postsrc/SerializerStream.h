@@ -75,6 +75,10 @@ public:
 	SerializerStream(std::ostream &);
 	void begin_serialization(const Serializable &obj, bool include_typehashes = false);
 	void serialize_id(const void *p){
+		if (!p){
+			this->serialize(0);
+			return;
+		}
 		auto it = this->id_map.find((uintptr_t)p);
 		if (it == this->id_map.end())
 			abort();

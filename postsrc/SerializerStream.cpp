@@ -33,9 +33,12 @@ void SerializerStream::begin_serialization(const Serializable &obj, bool include
 	std::vector<decltype(node)> stack;
 	stack.push_back(node);
 	objectid_t root_object = 0;
+	this->id_map[0] = 0;
 	while (stack.size()){
 		auto top = stack.back();
 		stack.pop_back();
+		if (!top.address)
+			continue;
 		auto id = this->save_object(top.address);
 		if (!id)
 			continue;
@@ -70,9 +73,12 @@ void SerializerStream::begin_serialization(const Serializable &obj, bool include
 		decltype(this->node_map) temp;
 		bool root_set = false;
 		this->id_map.clear();
+		this->id_map[0] = 0;
 		for (auto &r : remap){
 			for (auto i : r.second){
 				auto &node = this->node_map[i];
+				if (!node.address)
+					continue;
 				auto oid = this->save_object(node.address);
 				if (!root_set && i == root_object){
 					root_object = oid;

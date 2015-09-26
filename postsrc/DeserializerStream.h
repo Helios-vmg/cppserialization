@@ -144,6 +144,10 @@ public:
 	void deserialize_id(void *&p){
 		objectid_t oid;
 		this->deserialize(oid);
+		if (!oid){
+			p = nullptr;
+			return;
+		}
 		auto it = this->node_map.find(oid);
 		if (it == this->node_map.end())
 			throw std::exception("Serialized stream contains a reference to an unknown object.");
