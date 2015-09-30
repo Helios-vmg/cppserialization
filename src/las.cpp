@@ -474,6 +474,7 @@ void CppFile::generate_header(){
 	for (auto &h : includes)
 		file << "#include " << h << std::endl;
 	file <<
+		"#include \"" << this->name << ".aux.h\"\n"
 		"#include \"serialization_utils.h\"\n"
 		"#include \"Serializable.h\"\n"
 		"#include \"SerializerStream.h\"\n"
