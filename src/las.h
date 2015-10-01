@@ -100,6 +100,9 @@ public:
 	virtual bool is_pointer_type() const{
 		return false;
 	}
+	virtual bool is_abstract() const{
+		return false;
+	}
 };
 
 #if 1
@@ -535,13 +538,15 @@ class UserClass : public Type, public CppElement{
 	std::string name;
 	bool adding_headers;
 	static unsigned next_type_id;
+	bool abstract_type;
 protected:
 	virtual void iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited) override;
 	virtual void iterate_only_public_internal(iterate_callback_t &callback, std::set<Type *> &visited, bool do_not_ignore) override;
 public:
-	UserClass(const std::string &name):
+	UserClass(const std::string &name, bool is_abstract = false):
 		adding_headers(false),
-		name(name){}
+		name(name),
+		abstract_type(is_abstract){}
 	void add_base_class(const std::shared_ptr<UserClass> &base){
 		this->base_classes.push_back(base);
 	}
@@ -581,6 +586,12 @@ public:
 	void generate_deserializer(std::ostream &stream, const char *deserializer_name, const char *pointer_name) const override;
 	void generate_rollbacker(std::ostream &stream, const char *pointer_name) const override;
 	void generate_is_serializable(std::ostream &stream) const override;
+	bool is_abstract() const override{
+		return this->abstract_type;
+	}
+	void set_abstract(bool v){
+		this->abstract_type = v;
+	}
 };
 
 class CppFile{

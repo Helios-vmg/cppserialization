@@ -177,7 +177,9 @@ void iterate_cpp(CppFile &cpp, const XMLElement *parent){
 			if (!name)
 				continue;
 
-			auto Class = make_shared(new UserClass(name));
+			bool is_abstract = el->BoolAttribute("is_abstract");
+
+			auto Class = make_shared(new UserClass(name, is_abstract));
 			callback_map[name] = [Class](const XMLElement *){ return Class; };
 			cpp_element = Class;
 		}

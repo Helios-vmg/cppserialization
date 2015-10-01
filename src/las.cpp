@@ -532,9 +532,13 @@ void CppFile::generate_allocator(std::ostream &stream){
 	stream << "void *" << get_allocator_function_name() << "(std::uint32_t type){\n"
 		"switch (type){\n";
 	for (auto &kv : this->type_map){
-		stream <<
-			"case " << kv.first << ":\n"
-			"return ::operator new (sizeof(";
+		stream << "case " << kv.first << ":\n";
+		if (kv.second->is_abstract()){
+			stream << "return nullptr;\n";
+			continue;
+		}
+		
+		stream << "return ::operator new (sizeof(";
 		kv.second->output(stream);
 		stream << "));\n";
 	}
@@ -549,7 +553,8 @@ void CppFile::generate_constructor(std::ostream &stream){
 		"switch (type){\n";
 	for (auto &kv : this->type_map){
 		stream << "case " << kv.first << ":\n";
-		kv.second->generate_deserializer(stream, "ds", "s");
+		if (!kv.second->is_abstract())
+			kv.second->generate_deserializer(stream, "ds", "s");
 		stream << "break;\n";
 	}
 	stream <<
@@ -591,11 +596,15 @@ void CppFile::generate_aux(){
 
 	std::string array_name = this->get_name() + "_id_hashes";
 
-	file << 
+	file <<
 		"#include \"Serializable.h\"\n"
 		"#include \"" << this->name << ".generated.h\"\n"
 		"#include <utility>\n"
 		"#include <cstdint>\n"
+		"\n";
+	for (auto &kv : this->type_map)
+		file << "// " << kv.first << ": " << kv.second << std::endl;
+	file <<
 		"\n"
 		"std::pair<std::uint32_t, TypeHash> " << array_name << "[] = {\n";
 
