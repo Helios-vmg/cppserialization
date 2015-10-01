@@ -293,7 +293,7 @@ void UserClass::generate_deserializer(std::ostream &stream) const{
 			stream << ": ";
 			first = false;
 		}
-		stream << b->get_name() << "::" << b->get_name() << "(ss)\n";
+		stream << b->get_name() << "(ds)\n";
 	}
 	
 	for (auto &e : this->elements){
