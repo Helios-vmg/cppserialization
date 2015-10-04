@@ -18,6 +18,15 @@ struct TypeHash;
 class SerializableMetadata;
 
 class DeserializerStream{
+public:
+	enum class ErrorType{
+		UnexpectedEndOfFile,
+		InconsistentSmartPointers,
+		UnknownObjectId,
+		InvalidProgramState,
+		MainObjectNotSerializable,
+	};
+private:
 	typedef std::uint32_t objectid_t;
 	std::istream *stream;
 	std::map<objectid_t, void *> node_map;
@@ -42,7 +51,7 @@ class DeserializerStream{
 		this->deserialize(p);
 		auto it = incorrect.find((uintptr_t)p);
 		if (it != incorrect.end())
-			throw std::exception("Inconsistent smart pointer usage detected.");
+			this->report_error(ErrorType::InconsistentSmartPointers);
 		it = correct.find((uintptr_t)p);
 		if (it != correct.end()){
 			t = *(T *)it->second.first;
@@ -130,10 +139,6 @@ class DeserializerStream{
 		while (m.size() != (size_t)size)
 			m.emplace(std::pair<DS &, DS &>(*this, *this));
 	}
-public:
-	enum class ErrorType{
-		UnexpectedEndOfFile,
-	};
 protected:
 	virtual void report_error(ErrorType, const char * = 0) = 0;
 public:
@@ -157,7 +162,7 @@ public:
 		}
 		auto it = this->node_map.find(oid);
 		if (it == this->node_map.end())
-			throw std::exception("Serialized stream contains a reference to an unknown object.");
+			this->report_error(ErrorType::UnknownObjectId);
 		p = it->second;
 	}
 	template <typename T>
@@ -185,14 +190,14 @@ public:
 			this->deserialize(e);
 	}
 	void deserialize(std::uint8_t &c){
-		if (!*this->stream)
-			this->report_error(ErrorType::UnexpectedEndOfFile);
 		this->stream->read((char *)&c, 1);
+		if (this->stream->gcount() < 1)
+			this->report_error(ErrorType::UnexpectedEndOfFile);
 	}
 	void deserialize(std::int8_t &c){
-		if (!*this->stream)
-			this->report_error(ErrorType::UnexpectedEndOfFile);
 		this->stream->read((char *)&c, 1);
+		if (this->stream->gcount() < 1)
+			this->report_error(ErrorType::UnexpectedEndOfFile);
 	}
 	void deserialize(bool &b){
 		std::uint8_t temp;

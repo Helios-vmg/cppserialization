@@ -75,9 +75,9 @@ Serializable *DeserializerStream::begin_deserialization(SerializableMetadata &me
 		}
 		this->state = State::SanityCheck;
 		if (!main_object_type || !main_object)
-			throw std::exception("Program in unknown state!");
+			this->report_error(ErrorType::InvalidProgramState);
 		if (!metadata.type_is_serializable(main_object_type))
-			throw std::exception("Main object is not an instance of Serializable. Deserilization cannot continue.");
+			this->report_error(ErrorType::MainObjectNotSerializable);
 		this->state = State::Done;
 	}catch (std::bad_alloc &){
 		throw;
