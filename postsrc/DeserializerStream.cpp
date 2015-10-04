@@ -79,6 +79,8 @@ Serializable *DeserializerStream::begin_deserialization(SerializableMetadata &me
 		if (!metadata.type_is_serializable(main_object_type))
 			throw std::exception("Main object is not an instance of Serializable. Deserilization cannot continue.");
 		this->state = State::Done;
+	}catch (std::bad_alloc &){
+		throw;
 	}catch (...){
 		switch (this->state){
 			case State::Safe:
@@ -95,6 +97,7 @@ Serializable *DeserializerStream::begin_deserialization(SerializableMetadata &me
 				this->node_map.clear();
 				break;
 		}
+		throw;
 	}
 	for (auto &p : this->known_shared_ptrs)
 		p.second.second(p.second.first);
