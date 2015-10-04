@@ -131,7 +131,14 @@ class DeserializerStream{
 			m.emplace(std::pair<DS &, DS &>(*this, *this));
 	}
 public:
+	enum class ErrorType{
+		UnexpectedEndOfFile,
+	};
+protected:
+	virtual void report_error(ErrorType, const char * = 0) = 0;
+public:
 	DeserializerStream(std::istream &);
+	virtual ~DeserializerStream(){}
 	template <typename Target>
 	Target *begin_deserialization(bool includes_typehashes = false){
 		auto metadata = Target::static_get_metadata();
@@ -178,9 +185,13 @@ public:
 			this->deserialize(e);
 	}
 	void deserialize(std::uint8_t &c){
+		if (!*this->stream)
+			this->report_error(ErrorType::UnexpectedEndOfFile);
 		this->stream->read((char *)&c, 1);
 	}
 	void deserialize(std::int8_t &c){
+		if (!*this->stream)
+			this->report_error(ErrorType::UnexpectedEndOfFile);
 		this->stream->read((char *)&c, 1);
 	}
 	void deserialize(bool &b){
@@ -193,7 +204,12 @@ public:
 		static_assert(CHAR_BIT == 8, "Only 8-bit byte platforms supported!");
 
 		std::uint8_t array[sizeof(n)];
+		if (!*this->stream)
+			this->report_error(ErrorType::UnexpectedEndOfFile);
 		this->stream->read((char *)array, sizeof(array));
+		auto read = this->stream->gcount();
+		if (read != sizeof(array))
+			this->report_error(ErrorType::UnexpectedEndOfFile);
 		unsigned shift = 0;
 		n = 0;
 		for (auto i : array){
