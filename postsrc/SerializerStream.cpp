@@ -59,7 +59,6 @@ void SerializerStream::begin_serialization(const Serializable &obj, bool include
 		std::map<decltype(list[0].first), decltype(list[0].second) *> typemap;
 		for (auto &i : list)
 			typemap[i.first] = &i.second;
-		for (auto &n : this->node_map)
 		this->serialize((std::uint32_t)used_types.size());
 		for (auto &t : used_types){
 			this->serialize(t);
