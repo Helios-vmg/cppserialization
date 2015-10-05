@@ -66,7 +66,7 @@ ObjectNode get_object_node_default(T *n, std::uint32_t type_id){
 			return NodeIterator();
 		},
 		[n](SerializerStream &ss){
-			ss.serialize_id(n);
+			ss.serialize(*n);
 		},
 		[type_id](){
 			return type_id;
