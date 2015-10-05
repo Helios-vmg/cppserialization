@@ -122,21 +122,19 @@ void ArrayType::generate_pointer_enumerator(generate_pointer_enumerator_callback
 
 void PointerType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
 	std::stringstream stream;
-	stream << this_name << ", ";
 	if (!this->inner->is_serializable())
-		stream << "static_get_type_id<" << this->inner << ">::value";
+		stream << "::get_object_node(" << this_name << ", " << "static_get_type_id<" << this->inner << ">::value)";
 	else
-		stream << "(" << this_name << ")->get_type_id()";
-	callback(this_name, CallMode::TransformAndAdd);
+		stream << "((Serializable *)(" << this_name << "))->get_object_node()";
+	callback(stream.str(), CallMode::TransformAndAdd);
 }
 
 void StdSmartPtrType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
 	std::stringstream stream;
-	stream << "(" << this_name << ").get(), ";
 	if (!this->inner->is_serializable())
-		stream << "static_get_type_id<" << this->inner << ">::value";
+		stream << "::get_object_node((" << this_name << ").get(), static_get_type_id<" << this->inner << ">::value)";
 	else
-		stream << "(" << this_name << ")->get_type_id()";
+		stream << "((Serializable *)(" << this_name << ").get())->get_object_node()";
 	callback(stream.str(), CallMode::TransformAndAdd);
 }
 
@@ -253,7 +251,7 @@ void UserClass::generate_get_object_node2(std::ostream &stream) const{
 		std::string addend;
 		if (mode != CallMode::AddVerbatim){
 			auto replaced = replace_all(s, "(*this).", "this->");
-			addend = variable_formatter("v.push_back(::get_object_node({0}));\n") << "0" << replaced;
+			addend = variable_formatter("v.push_back({0});\n") << "0" << replaced;
 			if (mode == CallMode::TransformAndReturn)
 				return addend;
 		}else
