@@ -34,6 +34,7 @@ void SerializerStream::begin_serialization(const Serializable &obj, bool include
 	stack.push_back(node);
 	objectid_t root_object = 0;
 	this->id_map[0] = 0;
+	std::set<std::uint32_t> used_types;
 	while (stack.size()){
 		auto top = stack.back();
 		stack.pop_back();
@@ -48,16 +49,21 @@ void SerializerStream::begin_serialization(const Serializable &obj, bool include
 		while (it.next())
 			stack.push_back(*it);
 		this->node_map[id] = top;
+		used_types.insert(top.get_typeid());
 	}
 	if (include_typehashes){
 #ifdef LOG
 		std::clog << "Serializing type hashes...\n";
 #endif
 		auto list = obj.get_metadata()->get_known_types();
-		this->serialize((std::uint32_t)list.size());
-		for (auto &i : list){
-			this->serialize(i.first);
-			this->serialize_array(i.second.digest);
+		std::map<decltype(list[0].first), decltype(list[0].second) *> typemap;
+		for (auto &i : list)
+			typemap[i.first] = &i.second;
+		for (auto &n : this->node_map)
+		this->serialize((std::uint32_t)used_types.size());
+		for (auto &t : used_types){
+			this->serialize(t);
+			this->serialize_array(typemap[t]->digest);
 		}
 	}
 #ifdef LOG
