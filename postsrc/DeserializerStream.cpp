@@ -53,6 +53,9 @@ Serializable *DeserializerStream::begin_deserialization(SerializableMetadata &me
 				for (; object_id <= p.second; object_id++){
 					object_types[object_id] = type_id;
 					auto mem = metadata.allocate_memory(type_id);
+					if (!mem)
+						this->report_error(ErrorType::AllocateAbstractObject);
+
 					if (!main_object && object_id == root_object_id){
 						main_object = mem;
 						main_object_type = type_id;

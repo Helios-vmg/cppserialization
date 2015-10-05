@@ -25,6 +25,7 @@ public:
 		UnknownObjectId,
 		InvalidProgramState,
 		MainObjectNotSerializable,
+		AllocateAbstractObject,
 	};
 private:
 	typedef std::uint32_t objectid_t;

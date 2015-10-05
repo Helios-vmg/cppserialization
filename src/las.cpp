@@ -121,12 +121,23 @@ void ArrayType::generate_pointer_enumerator(generate_pointer_enumerator_callback
 }
 
 void PointerType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
+	std::stringstream stream;
+	stream << this_name << ", ";
+	if (!this->inner->is_serializable())
+		stream << "static_get_type_id<" << this->inner << ">::value";
+	else
+		stream << "(" << this_name << ")->get_type_id()";
 	callback(this_name, CallMode::TransformAndAdd);
 }
 
 void StdSmartPtrType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
-	auto param = "(" + this_name + ").get()";
-	callback(param, CallMode::TransformAndAdd);
+	std::stringstream stream;
+	stream << "(" << this_name << ").get(), ";
+	if (!this->inner->is_serializable())
+		stream << "static_get_type_id<" << this->inner << ">::value";
+	else
+		stream << "(" << this_name << ")->get_type_id()";
+	callback(stream.str(), CallMode::TransformAndAdd);
 }
 
 void SequenceType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
@@ -517,7 +528,19 @@ void CppFile::generate_source(){
 		"extern size_t " << this->get_name() << "_id_hashes_length;\n"
 		"\n"
 		<< generate_get_metadata_signature() << ";\n"
+		"\n"
+		"template <typename T>\n"
+		"struct static_get_type_id{};\n"
 		"\n";
+
+	for (auto &kv : this->type_map){
+		file <<
+			"template <>\n"
+			"struct static_get_type_id<" << *kv.second << ">{\n"
+			"static const std::uint32_t value = " << kv.second->get_type_id() << ";\n"
+			"};\n"
+			"\n";
+	}
 
 	for (auto &e : this->elements){
 		auto Class = std::dynamic_pointer_cast<UserClass>(e);

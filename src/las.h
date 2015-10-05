@@ -103,6 +103,9 @@ public:
 	virtual bool is_abstract() const{
 		return false;
 	}
+	virtual bool is_serializable() const{
+		return false;
+	}
 };
 
 #if 1
@@ -591,6 +594,9 @@ public:
 	}
 	void set_abstract(bool v){
 		this->abstract_type = v;
+	}
+	bool is_serializable() const override{
+		return true;
 	}
 };
 

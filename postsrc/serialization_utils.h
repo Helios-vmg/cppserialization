@@ -59,7 +59,7 @@ public:
 };
 
 template <typename T>
-ObjectNode get_object_node_default(T *n){
+ObjectNode get_object_node_default(T *n, std::uint32_t type_id){
 	return {
 		n,
 		[](){
@@ -68,44 +68,39 @@ ObjectNode get_object_node_default(T *n){
 		[n](SerializerStream &ss){
 			ss.serialize_id(n);
 		},
-		[](){
-			return 0;
+		[type_id](){
+			return type_id;
 		}
 	};
 }
 
 template <typename T>
-ObjectNode get_object_node(bool *n){
-	return get_object_node_default(n);
+ObjectNode get_object_node(T *n, std::uint32_t type_id){
+	return get_object_node_default(n, type_id);
 }
 
 template <typename T>
-ObjectNode get_object_node(const std::shared_ptr<bool> &n){
-	return get_object_node_default(n.get());
+typename std::enable_if<std::is_integral<T>::value, ObjectNode>::type get_object_node(T *n, std::uint32_t type_id){
+	return get_object_node_default(n, type_id);
 }
 
 template <typename T>
-typename std::enable_if<std::is_integral<T>::value, ObjectNode>::type get_object_node(T *n){
-	return get_object_node_default(n);
+typename std::enable_if<std::is_floating_point<T>::value, ObjectNode>::type get_object_node(T *n, std::uint32_t type_id){
+	return get_object_node_default(n, type_id);
 }
 
 template <typename T>
-typename std::enable_if<std::is_floating_point<T>::value, ObjectNode>::type get_object_node(T *n){
-	return get_object_node_default(n);
+ObjectNode get_object_node(std::basic_string<T> *n, std::uint32_t type_id){
+	return get_object_node_default(n, type_id);
 }
 
 template <typename T>
-ObjectNode get_object_node(std::basic_string<T> *n){
-	return get_object_node_default(n);
+ObjectNode get_object_node(const std::shared_ptr<std::basic_string<T> > &n, std::uint32_t type_id){
+	return get_object_node_default(n.get(), type_id);
 }
 
 template <typename T>
-ObjectNode get_object_node(const std::shared_ptr<std::basic_string<T> > &n){
-	return get_object_node_default(n.get());
-}
-
-template <typename T>
-ObjectNode get_object_node(T **p){
+ObjectNode get_object_node(T **p, std::uint32_t type_id){
 	return {
 		p,
 		[p](){
@@ -116,19 +111,19 @@ ObjectNode get_object_node(T **p){
 		[p](SerializerStream &ss){
 			ss.serialize_id(p);
 		},
-		[](){
-			return 0;
+		[type_id](){
+			return type_id;
 		}
 	};
 }
 
 template <typename T>
-ObjectNode get_object_node(const std::shared_ptr<T *> &n){
-	return get_object_node(n.get());
+ObjectNode get_object_node(const std::shared_ptr<T *> &n, std::uint32_t type_id){
+	return get_object_node(n.get(), type_id);
 }
 
 template <typename T>
-ObjectNode get_object_node(std::shared_ptr<T> *p){
+ObjectNode get_object_node(std::shared_ptr<T> *p, std::uint32_t type_id){
 	return {
 		p,
 		[](){
@@ -137,14 +132,14 @@ ObjectNode get_object_node(std::shared_ptr<T> *p){
 		[p](SerializerStream &ss){
 			ss.serialize_id(p);
 		},
-		[](){
-			return 0;
+		[type_id](){
+			return type_id;
 		}
 	};
 }
 
 template <typename T>
-ObjectNode get_object_node_sequence(T *p){
+ObjectNode get_object_node_sequence(T *p, std::uint32_t type_id){
 	return {
 		p,
 		[](){
@@ -153,34 +148,34 @@ ObjectNode get_object_node_sequence(T *p){
 		[p](SerializerStream &ss){
 			ss.serialize_id(p);
 		},
-		[](){
-			return 0;
+		[type_id](){
+			return type_id;
 		}
 	};
 }
 
 template <typename T>
-ObjectNode get_object_node(std::vector<T> *p){
-	return get_object_node_sequence(p);
+ObjectNode get_object_node(std::vector<T> *p, std::uint32_t type_id){
+	return get_object_node_sequence(p, type_id);
 }
 
 template <typename T>
-ObjectNode get_object_node(std::list<T> *p){
-	return get_object_node_sequence(p);
+ObjectNode get_object_node(std::list<T> *p, std::uint32_t type_id){
+	return get_object_node_sequence(p, type_id);
 }
 
 template <typename T>
-ObjectNode get_object_node(std::set<T> *p){
-	return get_object_node_sequence(p);
+ObjectNode get_object_node(std::set<T> *p, std::uint32_t type_id){
+	return get_object_node_sequence(p, type_id);
 }
 
 template <typename T>
-ObjectNode get_object_node(std::unordered_set<T> *p){
-	return get_object_node_sequence(p);
+ObjectNode get_object_node(std::unordered_set<T> *p, std::uint32_t type_id){
+	return get_object_node_sequence(p, type_id);
 }
 
 template <typename T>
-ObjectNode get_object_node_assoc(T *p){
+ObjectNode get_object_node_assoc(T *p, std::uint32_t type_id){
 	return {
 		p,
 		[](){
@@ -189,25 +184,25 @@ ObjectNode get_object_node_assoc(T *p){
 		[p](SerializerStream &ss){
 			ss.serialize_id(p);
 		},
-		[](){
-			return 0;
+		[type_id](){
+			return type_id;
 		}
 	};
 }
 
 template <typename T1, typename T2>
-ObjectNode get_object_node(std::map<T1, T2> *p){
-	return get_object_node_assoc(p);
+ObjectNode get_object_node(std::map<T1, T2> *p, std::uint32_t type_id){
+	return get_object_node_assoc(p, type_id);
 }
 
 template <typename T1, typename T2>
-ObjectNode get_object_node(std::unordered_map<T1, T2> *p){
-	return get_object_node_assoc(p);
+ObjectNode get_object_node(std::unordered_map<T1, T2> *p, std::uint32_t type_id){
+	return get_object_node_assoc(p, type_id);
 }
 
 template <typename T>
-ObjectNode get_object_node(const std::shared_ptr<T> &n){
-	return get_object_node(n.get());
+ObjectNode get_object_node(const std::shared_ptr<T> &n, std::uint32_t type_id){
+	return get_object_node(n.get(), type_id);
 }
 
 typedef std::uint64_t wire_size_t;
