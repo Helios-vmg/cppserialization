@@ -59,5 +59,16 @@
     <ClInclude Include="$(SolutionDir)\postsrc\SerializerStream.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="random_graph.aux.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\postsrc\ExampleDeserializerStream.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="random_graph.txt">
+      <Filter>Source Files</Filter>
+    </Text>
   </ItemGroup>
 </Project>

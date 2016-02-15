@@ -1,0 +1,8 @@
+cpp testtype{
+	struct test_type{
+		bool valid;
+		string name;
+		pointer<test_type> next;
+		#include "testtype.h"
+	}
+}

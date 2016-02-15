@@ -73,7 +73,7 @@ class SerializerStream{
 	objectid_t save_object(const void *p);
 public:
 	SerializerStream(std::ostream &);
-	void begin_serialization(const Serializable &obj, bool include_typehashes = false);
+	void serialize(const Serializable &obj, bool include_typehashes = false);
 	void serialize_id(const void *p){
 		if (!p){
 			this->serialize(0);

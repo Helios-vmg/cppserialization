@@ -45,7 +45,7 @@ private:
 	std::map<uintptr_t, smart_ptr_freer_pair_t> known_shared_ptrs;
 	std::map<uintptr_t, smart_ptr_freer_pair_t> known_unique_ptrs;
 
-	Serializable *begin_deserialization(SerializableMetadata &, bool includes_typehashes = false);
+	Serializable *deserialize(SerializableMetadata &, bool includes_typehashes = false);
 	template <typename T>
 	void deserialize_smart_ptr(T &t, std::map<uintptr_t, smart_ptr_freer_pair_t> &correct, std::map<uintptr_t, smart_ptr_freer_pair_t> &incorrect){
 		typename T::element_type *p;
@@ -146,9 +146,9 @@ public:
 	DeserializerStream(std::istream &);
 	virtual ~DeserializerStream(){}
 	template <typename Target>
-	Target *begin_deserialization(bool includes_typehashes = false){
+	Target *deserialize(bool includes_typehashes = false){
 		auto metadata = Target::static_get_metadata();
-		auto p = this->begin_deserialization(*metadata, includes_typehashes);
+		auto p = this->deserialize(*metadata, includes_typehashes);
 		auto ret = dynamic_cast<Target *>(p);
 		if (!ret)
 			delete p;

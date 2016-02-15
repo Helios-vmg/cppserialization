@@ -17,61 +17,56 @@
 
 class SerializerStream;
 
-template <typename T>
-std::shared_ptr<T> make_shared(T *p){
-	return std::shared_ptr<T>(p);
-}
-
-class NodeIterator;
-
-struct ObjectNode{
-	const void *address;
-	std::function<NodeIterator()> get_children;
-	typedef std::function<void (SerializerStream &)> serialize_t;
-	serialize_t serialize;
-	std::function<std::uint32_t()> get_typeid;
-};
-
-class NodeIterator{
-	std::shared_ptr<std::vector<ObjectNode>> nodes;
-	size_t state;
+class ObjectNode{
 public:
-	NodeIterator(){
-		this->reset();
+	typedef void (*get_children_t)(const void *, std::vector<ObjectNode> &);
+	typedef void (*serialize_t)(const void *, SerializerStream &);
+	typedef std::uint32_t (*get_typeid_t)(const void *);
+private:
+	const void *address;
+	get_children_t get_children_f;
+	serialize_t serialize_f;
+	std::uint32_t type_id;
+public:
+	ObjectNode()
+		: address(nullptr)
+		, get_children_f(nullptr)
+		, serialize_f(nullptr)
+		, type_id(0){}
+	ObjectNode(const void *address, get_children_t get_children_f, serialize_t serialize_f, std::uint32_t type_id)
+		: address(address)
+		, get_children_f(get_children_f)
+		, serialize_f(serialize_f)
+		, type_id(type_id){}
+	ObjectNode(const void *address, serialize_t serialize_f, std::uint32_t type_id)
+		: address(address)
+		, get_children_f(nullptr)
+		, serialize_f(serialize_f)
+		, type_id(type_id){}
+	void get_children(std::vector<ObjectNode> &dst){
+		if (this->get_children_f)
+			this->get_children_f(this->address, dst);
 	}
-	NodeIterator(const decltype(NodeIterator::nodes) &nodes): nodes(nodes){
-		this->reset();
+	void serialize(SerializerStream &ss){
+		this->serialize_f(this->address, ss);
 	}
-	bool next(){
-		if (!this->nodes)
-			return false;
-		return ++this->state < this->nodes->size();
+	std::uint32_t get_typeid(){
+		return this->type_id;
 	}
-	void reset(){
-		this->state = std::numeric_limits<decltype(this->state)>::max();
-	}
-	ObjectNode operator*(){
-		return (*this->nodes)[this->state];
-	}
-	ObjectNode *operator->(){
-		return &(*this->nodes)[this->state];
+	const void *get_address() const{
+		return this->address;
 	}
 };
 
 template <typename T>
 ObjectNode get_object_node_default(T *n, std::uint32_t type_id){
-	return {
+	return ObjectNode(
 		n,
-		[](){
-			return NodeIterator();
+		[](const void *This, SerializerStream &ss){
+			ss.serialize(*(const T *)This);
 		},
-		[n](SerializerStream &ss){
-			ss.serialize(*n);
-		},
-		[type_id](){
-			return type_id;
-		}
-	};
+		type_id
+	);
 }
 
 template <typename T>
@@ -101,20 +96,16 @@ ObjectNode get_object_node(const std::shared_ptr<std::basic_string<T> > &n, std:
 
 template <typename T>
 ObjectNode get_object_node(T **p, std::uint32_t type_id){
-	return {
+	return ObjectNode(
 		p,
-		[p](){
-			auto v = make_shared(new std::vector<ObjectNode>);
-			v->push_back(get_object_node(*p));
-			return NodeIterator(v);
+		[](const void *This, std::vector<ObjectNode> &dst){
+			dst.push_back(get_object_node(*(T **)This));
 		},
-		[p](SerializerStream &ss){
-			ss.serialize_id(p);
+		[](const void *This, SerializerStream &ss){
+			ss.serialize_id((T **)This);
 		},
-		[type_id](){
-			return type_id;
-		}
-	};
+		type_id
+	);
 }
 
 template <typename T>
@@ -124,34 +115,24 @@ ObjectNode get_object_node(const std::shared_ptr<T *> &n, std::uint32_t type_id)
 
 template <typename T>
 ObjectNode get_object_node(std::shared_ptr<T> *p, std::uint32_t type_id){
-	return {
+	return ObjectNode(
 		p,
-		[](){
-			return NodeIterator();
+		[](const void *This, SerializerStream &ss){
+			ss.serialize_id((std::shared_ptr<T> *)This);
 		},
-		[p](SerializerStream &ss){
-			ss.serialize_id(p);
-		},
-		[type_id](){
-			return type_id;
-		}
-	};
+		type_id
+	);
 }
 
 template <typename T>
 ObjectNode get_object_node_sequence(T *p, std::uint32_t type_id){
-	return {
+	return ObjectNode(
 		p,
-		[](){
-			return NodeIterator();
+		[](const void *This, SerializerStream &ss){
+			ss.serialize_id((T *)This);
 		},
-		[p](SerializerStream &ss){
-			ss.serialize_id(p);
-		},
-		[type_id](){
-			return type_id;
-		}
-	};
+		type_id
+	);
 }
 
 template <typename T>
@@ -176,18 +157,13 @@ ObjectNode get_object_node(std::unordered_set<T> *p, std::uint32_t type_id){
 
 template <typename T>
 ObjectNode get_object_node_assoc(T *p, std::uint32_t type_id){
-	return {
+	return ObjectNode(
 		p,
-		[](){
-			return NodeIterator();
+		[](const void *This, SerializerStream &ss){
+			ss.serialize_id((T *)This);
 		},
-		[p](SerializerStream &ss){
-			ss.serialize_id(p);
-		},
-		[type_id](){
-			return type_id;
-		}
-	};
+		type_id
+	);
 }
 
 template <typename T1, typename T2>

@@ -43,6 +43,21 @@ std::string IntegerType::get_type_string() const{
 	return stream.str();
 }
 
+std::string FloatingPointType::get_type_string() const{
+	const char *s;
+	switch (this->precision) {
+		case FloatingPointPrecision::Float:
+			s = "float";
+			break;
+		case FloatingPointPrecision::Double:
+			s = "double";
+			break;
+		default:
+			break;
+	}
+	return s;
+}
+
 std::string ArrayType::get_type_string() const{
 	std::stringstream stream;
 	stream << "std::array< " << this->inner->get_type_string() << ", " << this->length << ">";
@@ -105,7 +120,7 @@ void Type::generate_rollbacker(std::ostream &stream, const char *pointer_name) c
 }
 
 void Type::generate_is_serializable(std::ostream &stream) const{
-	stream << "return false;\n";
+	stream << "return " << (this->get_is_serializable() ? "true" : "false") << ";\n";
 }
 
 void ArrayType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
@@ -286,7 +301,7 @@ void UserClass::generate_serialize(std::ostream &stream) const{
 }
 
 void UserClass::generate_get_type_hash(std::ostream &stream) const{
-	stream << "return TypeHash(" << this->get_type_hash().to_string() << ");";
+	stream << "return " << this->root->get_name() << "_id_hashes[" << (this->get_type_id() - 1) << "].second;";
 }
 
 void UserClass::generate_get_metadata(std::ostream &stream) const{
@@ -348,8 +363,8 @@ void UserClass::generate_rollbacker(std::ostream &stream, const char *pointer_na
 		"}\n";
 }
 
-void UserClass::generate_is_serializable(std::ostream &stream) const{
-	stream << "return true;\n";
+bool UserClass::get_is_serializable() const{
+	return true;
 }
 
 void UserClass::generate_source(std::ostream &stream) const{
@@ -523,7 +538,6 @@ void CppFile::generate_source(){
 		"#include <utility>\n"
 		"\n"
 		"extern std::pair<std::uint32_t, TypeHash> " << this->get_name() << "_id_hashes[];\n"
-		"extern size_t " << this->get_name() << "_id_hashes_length;\n"
 		"\n"
 		<< generate_get_metadata_signature() << ";\n"
 		"\n"
@@ -597,17 +611,37 @@ void CppFile::generate_rollbacker(std::ostream &stream){
 }
 
 void CppFile::generate_is_serializable(std::ostream &stream){
-	stream << "bool " << get_is_serializable_function_name() << "(std::uint32_t type){\n"
-		"switch (type){\n";
+	std::vector<std::uint32_t> flags;
+	int bit = 0;
+	int i = 0;
 	for (auto &kv : this->type_map){
-		stream << "case " << kv.first << ":\n";
-		kv.second->generate_is_serializable(stream);
-		stream << "break;\n";
+		std::uint32_t u = kv.second->get_is_serializable();
+		if (kv.second->get_type_id() != ++i)
+			throw std::exception("Unknown program state!");
+		u <<= bit;
+		if (!bit)
+			flags.push_back(u);
+		else
+			flags.back() |= u;
+		bit = (bit + 1) % 32;
 	}
-	stream <<
-		"}\n"
-		"return false;\n"
-		"}\n";
+
+
+	const char *format = 
+		"bool {function_name}(std::uint32_t type){{\n"
+		"static const std::uint32_t is_serializable[] = {{ {array} }};\n"
+		"type--;"
+		"return (is_serializable[type / 32] >> (type & 31)) & 1;\n"
+		"}}\n";
+	variable_formatter vf = format;
+	std::stringstream temp;
+	for (auto u : flags)
+		temp << "0x" << std::hex << std::setw(8) << std::setfill('0') << (int)u << ", ";
+	vf
+		<< "function_name" << get_is_serializable_function_name()
+		<< "array" << temp.str();
+	
+	stream << (std::string)vf;
 }
 
 void CppFile::generate_aux(){
@@ -634,7 +668,6 @@ void CppFile::generate_aux(){
 
 	file <<
 		"};\n"
-		"size_t " << this->get_name() << "_id_hashes_length = " << this->type_map.size() << ";\n"
 		"\n";
 	this->generate_allocator(file);
 	file << "\n";

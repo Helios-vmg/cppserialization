@@ -1,10 +1,10 @@
 #if !defined STDAFX_H && defined HAVE_PRECOMPILED_HEADERS
 #define STDAFX_H
 
-#include "tinyxml2/tinyxml2.h"
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <cassert>
 #include <fstream>
 #include <functional>
 #include <iomanip>

@@ -16,11 +16,18 @@
 #include "typehash.h"
 
 extern std::mt19937_64 rng;
+class CppFile;
 
 class CppElement{
+protected:
+	CppFile *root;
 public:
+	CppElement(CppFile &file): root(&file){}
 	virtual ~CppElement(){}
 	virtual std::ostream &output(std::ostream &) const = 0;
+	CppFile &get_root() const{
+		return *this->root;
+	}
 };
 
 enum class CallMode{
@@ -60,7 +67,10 @@ public:
 	virtual void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{}
 	virtual void generate_deserializer(std::ostream &stream, const char *deserializer_name, const char *pointer_name) const;
 	virtual void generate_rollbacker(std::ostream &stream, const char *pointer_name) const;
-	virtual void generate_is_serializable(std::ostream &stream) const;
+	void generate_is_serializable(std::ostream &stream) const;
+	virtual bool get_is_serializable() const{
+		return false;
+	}
 	std::uint32_t get_type_id() const{
 		return this->type_id;
 	}
@@ -151,7 +161,7 @@ class IntegerType : public Type{
 	unsigned size;
 
 	static std::shared_ptr<IntegerType> creator_helper(size_t i){
-		return std::shared_ptr<IntegerType>(new IntegerType(i & 1, i / 2));
+		return std::make_shared<IntegerType>(!!(i & 1), i / 2);
 	}
 public:
 	IntegerType(bool signedness, unsigned size):
@@ -190,18 +200,65 @@ public:
 	std::string get_type_string() const override;
 };
 
-class StringType : public Type{
-	bool wide;
+enum class FloatingPointPrecision{
+	Float,
+	Double,
+};
+
+class FloatingPointType : public Type{
+	FloatingPointPrecision precision;
 public:
-	StringType(bool wide): wide(wide){}
+	FloatingPointType(FloatingPointPrecision precision):
+		precision(precision){}
+	FloatingPointPrecision get_precision() const{
+		return this->precision;
+	}
 	std::ostream &output(std::ostream &stream) const override{
-		return stream << "std::" << (this->wide ? "w" : "") << "string";
+		return stream << this->get_type_string();
+	}
+	std::string get_type_string() const override;
+};
+
+enum class CharacterWidth{
+	Narrow,
+	Wide,
+};
+
+class StringType : public Type{
+	CharacterWidth width;
+public:
+	StringType(CharacterWidth width): width(width){}
+	std::ostream &output(std::ostream &stream) const override{
+		stream << "std::";
+		const char *s;
+		switch (this->width) {
+			case CharacterWidth::Narrow:
+				s = "string";
+				break;
+			case CharacterWidth::Wide:
+				s = "wstring";
+				break;
+			default:
+				break;
+		}
+		return stream << s;
 	}
 	const char *header() const override{
 		return "<string>";
 	}
 	std::string get_type_string() const override{
-		return this->wide ? "wstr" : "str";
+		const char *s;
+		switch (this->width) {
+			case CharacterWidth::Narrow:
+				s = "str";
+				break;
+			case CharacterWidth::Wide:
+				s = "wstr";
+				break;
+			default:
+				break;
+		}
+		return s;
 	}
 };
 
@@ -546,7 +603,8 @@ protected:
 	virtual void iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited) override;
 	virtual void iterate_only_public_internal(iterate_callback_t &callback, std::set<Type *> &visited, bool do_not_ignore) override;
 public:
-	UserClass(const std::string &name, bool is_abstract = false):
+	UserClass(CppFile &file, const std::string &name, bool is_abstract = false):
+		CppElement(file),
 		adding_headers(false),
 		name(name),
 		abstract_type(is_abstract){}
@@ -588,7 +646,7 @@ public:
 	DEFINE_GENERATE_OVERLOAD(generate_deserializer)
 	void generate_deserializer(std::ostream &stream, const char *deserializer_name, const char *pointer_name) const override;
 	void generate_rollbacker(std::ostream &stream, const char *pointer_name) const override;
-	void generate_is_serializable(std::ostream &stream) const override;
+	bool get_is_serializable() const override;
 	bool is_abstract() const override{
 		return this->abstract_type;
 	}
@@ -632,11 +690,11 @@ public:
 
 class UserInclude : public CppElement, public ClassElement{
 	std::string include;
+	bool relative;
 public:
-	UserInclude(const std::string &include): include(include){}
+	UserInclude(CppFile &file, const std::string &include, bool relative): CppElement(file), include(include), relative(relative){}
 	std::ostream &output(std::ostream &stream) const{
-		stream << "#include " << this->include;
-		return stream;
+		return stream << "#include " << (this->relative ? '"' : '<') << this->include << (this->relative ? '"' : '>');
 	}
 	bool needs_semicolon() const override{
 		return false;

@@ -31,22 +31,16 @@ class Serializable{
 public:
 	virtual void get_object_node(std::vector<ObjectNode> &) const = 0;
 	ObjectNode get_object_node() const{
-		return {
+		return ObjectNode(
 			this,
-			[this](){
-				auto v = make_shared(new std::vector<ObjectNode>);
-				this->get_object_node(*v);
-				if (!v->size())
-					return NodeIterator();
-				return NodeIterator(v);
+			[](const void *This, std::vector<ObjectNode> &dst){
+				static_cast<const Serializable *>(This)->get_object_node(dst);
 			},
-			[this](SerializerStream &ss){
-				this->serialize(ss);
+			[](const void *This, SerializerStream &ss){
+				static_cast<const Serializable *>(This)->serialize(ss);
 			},
-			[this](){
-				return this->get_type_id();
-			}
-		};
+			this->get_type_id()
+		);
 	}
 	virtual void serialize(SerializerStream &) const = 0;
 	virtual std::uint32_t get_type_id() const = 0;

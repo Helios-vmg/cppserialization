@@ -19,16 +19,28 @@ std::vector<std::pair<std::uint32_t, TypeHash> > DeserializerStream::read_typeha
 	return ret;
 }
 
-Serializable *DeserializerStream::begin_deserialization(SerializableMetadata &metadata, bool includes_typehashes){
+#if defined _DEBUG || defined TESTING_BUILD
+#define LOG
+#endif
+
+
+Serializable *DeserializerStream::deserialize(SerializableMetadata &metadata, bool includes_typehashes){
 	std::map<objectid_t, std::uint32_t> object_types;
 	std::vector<std::pair<std::uint32_t, void *> > initialized;
 	void *main_object = nullptr;
 	try{
 		this->state = State::ReadingTypeHashes;
-		if (includes_typehashes)
+		if (includes_typehashes){
+#ifdef LOG
+			std::clog << "Reading type hashes...\n";
+#endif
 			metadata.set_type_mappings(this->read_typehashes());
+		}
 		this->state = State::Safe;
 
+#ifdef LOG
+		std::clog << "Reading node map...\n";
+#endif
 		std::vector<std::pair<std::uint32_t, objectid_t>> type_map;
 		wire_size_t size;
 		this->deserialize(size);
@@ -44,6 +56,9 @@ Serializable *DeserializerStream::begin_deserialization(SerializableMetadata &me
 		objectid_t root_object_id;
 		this->deserialize(root_object_id);
 
+#ifdef LOG
+		std::clog << "Allocating memory...\n";
+#endif
 		this->state = State::AllocatingMemory;
 		std::uint32_t main_object_type = 0;
 		{
@@ -70,12 +85,18 @@ Serializable *DeserializerStream::begin_deserialization(SerializableMetadata &me
 			}
 		}
 
+#ifdef LOG
+		std::clog << "Constructing memory (by deserializing object data)...\n";
+#endif
 		this->state = State::InitializingObjects;
 		for (auto &kv : this->node_map){
 			auto type = object_types[kv.first];
 			metadata.construct_memory(type, kv.second, *this);
 			initialized.push_back(std::make_pair(type, kv.second));
 		}
+#ifdef LOG
+		std::clog << "Checking sanity...\n";
+#endif
 		this->state = State::SanityCheck;
 		if (!main_object_type || !main_object)
 			this->report_error(ErrorType::InvalidProgramState);
@@ -102,11 +123,17 @@ Serializable *DeserializerStream::begin_deserialization(SerializableMetadata &me
 		}
 		throw;
 	}
+#ifdef LOG
+		std::clog << "Setting smart pointers...\n";
+#endif
 	for (auto &p : this->known_shared_ptrs)
 		p.second.second(p.second.first);
 	this->known_shared_ptrs.clear();
 	for (auto &p : this->known_unique_ptrs)
 		p.second.second(p.second.first);
 	this->known_unique_ptrs.clear();
+#ifdef LOG
+		std::clog << "Deserialization done!\n";
+#endif
 	return (Serializable *)main_object;
 }

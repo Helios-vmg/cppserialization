@@ -1,6 +1,7 @@
 #include "SerializerStream.h"
 #include "Serializable.h"
 #include <algorithm>
+#include <cassert>
 
 SerializerStream::SerializerStream(std::ostream &stream):
 		stream(&stream),
@@ -21,39 +22,50 @@ SerializerStream::objectid_t SerializerStream::save_object(const void *p){
 	return ret;
 }
 
-#if defined _DEBUG
+#if defined _DEBUG || defined TESTING_BUILD
 #define LOG
 #endif
 
-void SerializerStream::begin_serialization(const Serializable &obj, bool include_typehashes){
+void SerializerStream::serialize(const Serializable &obj, bool include_typehashes){
 	auto node = obj.get_object_node();
 #ifdef LOG
 	std::clog << "Traversing reference graph...\n";
 #endif
-	std::vector<decltype(node)> stack;
-	stack.push_back(node);
-	objectid_t root_object = 0;
-	this->id_map[0] = 0;
 	std::set<std::uint32_t> used_types;
-	while (stack.size()){
-		auto top = stack.back();
-		stack.pop_back();
-		if (!top.address)
-			continue;
-		auto id = this->save_object(top.address);
-		if (!id)
-			continue;
-		if (!root_object)
-			root_object = id;
-		auto it = top.get_children();
-		while (it.next())
-			stack.push_back(*it);
-		this->node_map[id] = top;
-		used_types.insert(top.get_typeid());
+	objectid_t root_object = 0;
+	{
+		std::vector<decltype(node)> stack, temp_stack;
+		this->id_map[0] = 0;
+
+		auto id = this->save_object(node.get_address());
+		assert(id);
+		root_object = id;
+		this->node_map[id] = node;
+		used_types.insert(node.get_typeid());
+		stack.push_back(node);
+
+		while (stack.size()){
+			auto top = stack.back();
+			stack.pop_back();
+			if (!top.get_address())
+				continue;
+			top.get_children(temp_stack);
+			for (auto &i : temp_stack){
+				id = this->save_object(i.get_address());
+				if (!id)
+					continue;
+				this->node_map[id] = i;
+				used_types.insert(i.get_typeid());
+				stack.push_back(i);
+			}
+			temp_stack.clear();
+		}
 	}
 	if (include_typehashes){
 #ifdef LOG
-		std::clog << "Serializing type hashes...\n";
+		std::clog <<
+			"Travesal found " << this->node_map.size() << " objects.\n"
+			"Serializing type hashes...\n";
 #endif
 		auto list = obj.get_metadata()->get_known_types();
 		std::map<decltype(list[0].first), decltype(list[0].second) *> typemap;
@@ -82,9 +94,9 @@ void SerializerStream::begin_serialization(const Serializable &obj, bool include
 		for (auto &r : remap){
 			for (auto i : r.second){
 				auto &node = this->node_map[i];
-				if (!node.address)
+				if (!node.get_address())
 					continue;
-				auto oid = this->save_object(node.address);
+				auto oid = this->save_object(node.get_address());
 				if (!root_set && i == root_object){
 					root_object = oid;
 					root_set = true;

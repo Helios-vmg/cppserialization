@@ -1,4 +1,5 @@
 #include "testtype.generated.h"
+#include <ExampleDeserializerStream.h>
 #include <fstream>
 
 int main(){
@@ -16,11 +17,13 @@ int main(){
 
 		std::ofstream file("test.bin", std::ios::binary);
 		SerializerStream ss(file);
-		ss.begin_serialization(a[0], true);
+		ss.serialize(a[0], true);
 	}
-	{
+	try{
 		std::ifstream file("test.bin", std::ios::binary);
-		DeserializerStream ds(file);
-		std::unique_ptr<test_type> tt(ds.begin_deserialization<test_type>(true));
+		ExampleDeserializerStream ds(file);
+		std::unique_ptr<test_type> tt(ds.deserialize<test_type>(true));
+	}catch (std::exception &e){
+		std::cerr << e.what() << std::endl;
 	}
 }
