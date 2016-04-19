@@ -70,12 +70,9 @@ void ArrayType::generate_deserializer(std::ostream &stream, const char *deserial
 	stream << " *temp = (";
 	this->output(stream);
 	stream << " *)" << pointer_name << ";\n"
-		"for (size_t i = 0; i != " << this->length << "; i++){\n"
-		"new (temp + i) ";
-	this->output(stream);
-	stream << ";\n"
-		<< deserializer_name << ".deserialize(temp[i]);\n"
-		"}\n"
+		"for (size_t i = 0; i != " << this->length << "; i++){\n";
+	this->generate_deserializer(stream, deserializer_name, pointer_name);
+	stream << "}\n"
 		"}\n";
 }
 
