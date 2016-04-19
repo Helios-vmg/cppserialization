@@ -67,8 +67,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="random_graph.txt">
-      <Filter>Source Files</Filter>
-    </Text>
+    <CustomBuild Include="random_graph.txt" />
   </ItemGroup>
 </Project>
