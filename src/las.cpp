@@ -565,48 +565,60 @@ void CppFile::generate_source(){
 
 void CppFile::generate_allocator(std::ostream &stream){
 	stream << "void *" << get_allocator_function_name() << "(std::uint32_t type){\n"
-		"switch (type){\n";
+		"static const size_t sizes[] = { ";
 	for (auto &kv : this->type_map){
-		stream << "case " << kv.first << ":\n";
 		if (kv.second->is_abstract()){
-			stream << "return nullptr;\n";
+			stream << "0, ";
 			continue;
 		}
-		
-		stream << "return ::operator new (sizeof(";
+		stream << "sizeof(";
 		kv.second->output(stream);
-		stream << "));\n";
+		stream << "), ";
 	}
-	stream <<
-		"}\n"
-		"return nullptr;"
+	stream << "};\n"
+		"type--;\n"
+		"if (!sizes[type]) return nullptr;\n"
+		"return ::operator new (sizes[type]);\n"
 		"}\n";
 }
 
 void CppFile::generate_constructor(std::ostream &stream){
 	stream << "void " << get_constructor_function_name() << "(std::uint32_t type, void *s, DeserializerStream &ds){\n"
-		"switch (type){\n";
-	for (auto &kv : this->type_map){
-		stream << "case " << kv.first << ":\n";
-		if (!kv.second->is_abstract())
-			kv.second->generate_deserializer(stream, "ds", "s");
-		stream << "break;\n";
+		"typedef void (*constructor_f)(void *, DeserializerStream &);\n"
+		"static const constructor_f constructors[] = {\n";
+	for (auto &kv : this->type_map) {
+		if (kv.second->is_abstract()) {
+			stream << "nullptr,\n";
+			continue;
+		}
+		stream << "[](void *s, DeserializerStream &ds)";
+		kv.second->generate_deserializer(stream, "ds", "s");
+		stream << ",\n";
 	}
-	stream <<
-		"}\n"
+	stream << "};\n"
+		"type--;\n"
+		"if (!constructors[type]) return;\n"
+		"return constructors[type](s, ds);\n"
 		"}\n";
 }
 
 void CppFile::generate_rollbacker(std::ostream &stream){
 	stream << "void " << get_rollbacker_function_name() << "(std::uint32_t type, void *s){\n"
-		"switch (type){\n";
-	for (auto &kv : this->type_map){
-		stream << "case " << kv.first << ":\n";
+		"typedef void (*rollbacker_f)(void *);\n"
+		"static const rollbacker_f rollbackers[] = {\n";
+	for (auto &kv : this->type_map) {
+		if (kv.second->is_abstract()) {
+			stream << "nullptr,\n";
+			continue;
+		}
+		stream << "[](void *s)";
 		kv.second->generate_rollbacker(stream, "s");
-		stream << "break;\n";
+		stream << ",\n";
 	}
-	stream <<
-		"}\n"
+	stream << "};\n"
+		"type--;\n"
+		"if (!rollbackers[type]) return;\n"
+		"return rollbackers[type](s, ds);\n"
 		"}\n";
 }
 
@@ -630,7 +642,7 @@ void CppFile::generate_is_serializable(std::ostream &stream){
 	const char *format = 
 		"bool {function_name}(std::uint32_t type){{\n"
 		"static const std::uint32_t is_serializable[] = {{ {array} }};\n"
-		"type--;"
+		"type--;\n"
 		"return (is_serializable[type / 32] >> (type & 31)) & 1;\n"
 		"}}\n";
 	variable_formatter vf = format;
