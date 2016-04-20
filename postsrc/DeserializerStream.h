@@ -224,7 +224,7 @@ public:
 		}
 	}
 	template <typename T>
-	typename std::enable_if<std::is_signed<T>::value, void>::type deserialize(T &z){
+	typename std::enable_if<std::is_signed<T>::value && std::is_integral<T>::value, void>::type deserialize(T &z){
 		typedef typename std::make_unsigned<T>::type u;
 		u temp;
 		this->deserialize(temp);
@@ -251,8 +251,8 @@ public:
 	typename std::enable_if<std::is_floating_point<T>::value, void>::type deserialize(T &x){
 		static_assert(std::numeric_limits<T>::is_iec559, "Only iec559 float/doubles supported!");
 		typedef typename floating_point_mapping<T>::type u;
-		static_assert(sizeof(u) != sizeof(T), "Hard-coded integer type doesn't match the size of requested float type!");
-		this->deserialize_fixed(*(const u *)&x);
+		static_assert(sizeof(u) == sizeof(T), "Hard-coded integer type doesn't match the size of requested float type!");
+		this->deserialize_fixed(*(u *)&x);
 	}
 	template <typename T>
 	void deserialize(std::basic_string<T> &s){

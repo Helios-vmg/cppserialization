@@ -615,7 +615,7 @@ void CppFile::generate_rollbacker(std::ostream &stream){
 	stream << "};\n"
 		"type--;\n"
 		"if (!rollbackers[type]) return;\n"
-		"return rollbackers[type](s, ds);\n"
+		"return rollbackers[type](s);\n"
 		"}\n";
 }
 

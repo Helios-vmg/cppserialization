@@ -123,7 +123,7 @@ public:
 		this->stream->write((const char *)array, sizeof(array));
 	}
 	template <typename T>
-	typename std::enable_if<std::is_signed<T>::value, void>::type serialize(T z){
+	typename std::enable_if<std::is_signed<T>::value && std::is_integral<T>::value, void>::type serialize(T z){
 		this->serialize(ints_to_uints(z));
 	}
 	template <typename T>
@@ -155,10 +155,10 @@ public:
 		this->stream->write((const char *)buffer + (capacity - buffer_size), buffer_size);
 	}
 	template <typename T>
-	typename std::enable_if<std::is_floating_point<T>::value, void>::type serialize(const T &x){
+	typename std::enable_if<std::is_floating_point<T>::value, void>::type serialize(T x){
 		static_assert(std::numeric_limits<T>::is_iec559, "Only iec559 float/doubles supported!");
 		typedef typename floating_point_mapping<T>::type u;
-		static_assert(sizeof(u) != sizeof(T), "Hard-coded integer type doesn't match the size of requested float type!");
+		static_assert(sizeof(u) == sizeof(T), "Hard-coded integer type doesn't match the size of requested float type!");
 		this->serialize_fixed(*(const u *)&x);
 	}
 	template <typename T>
