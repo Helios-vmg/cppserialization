@@ -50,7 +50,7 @@ public:
 };
 
 inline ObjectNode get_object_node(const Serializable *serializable){
-	return serializable->get_object_node();
+	return !serializable ? ObjectNode() : serializable->get_object_node();
 }
 
 class SerializableMetadata{

@@ -135,9 +135,9 @@ void ArrayType::generate_pointer_enumerator(generate_pointer_enumerator_callback
 void PointerType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
 	std::stringstream stream;
 	if (!this->inner->is_serializable())
-		stream << "::get_object_node(" << this_name << ", " << "static_get_type_id<" << this->inner << ">::value)";
+		stream << "::get_object_node(" << this_name << ", static_get_type_id<" << this->inner << ">::value)";
 	else
-		stream << "((Serializable *)(" << this_name << "))->get_object_node()";
+		stream << "::get_object_node((Serializable *)(" << this_name << ").get())";
 	callback(stream.str(), CallMode::TransformAndAdd);
 }
 
@@ -146,7 +146,7 @@ void StdSmartPtrType::generate_pointer_enumerator(generate_pointer_enumerator_ca
 	if (!this->inner->is_serializable())
 		stream << "::get_object_node((" << this_name << ").get(), static_get_type_id<" << this->inner << ">::value)";
 	else
-		stream << "((Serializable *)(" << this_name << ").get())->get_object_node()";
+		stream << "::get_object_node((Serializable *)(" << this_name << ").get())";
 	callback(stream.str(), CallMode::TransformAndAdd);
 }
 
