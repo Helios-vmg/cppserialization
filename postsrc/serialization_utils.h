@@ -59,15 +59,7 @@ public:
 };
 
 template <typename T>
-ObjectNode get_object_node_default(T *n, std::uint32_t type_id){
-	return ObjectNode(
-		n,
-		[](const void *This, SerializerStream &ss){
-			ss.serialize(*(const T *)This);
-		},
-		type_id
-	);
-}
+ObjectNode get_object_node_default(T *n, std::uint32_t type_id);
 
 template <typename T>
 ObjectNode get_object_node(T *n, std::uint32_t type_id){
@@ -95,18 +87,7 @@ ObjectNode get_object_node(const std::shared_ptr<std::basic_string<T> > &n, std:
 }
 
 template <typename T>
-ObjectNode get_object_node(T **p, std::uint32_t type_id){
-	return ObjectNode(
-		p,
-		[](const void *This, std::vector<ObjectNode> &dst){
-			dst.push_back(get_object_node(*(T **)This));
-		},
-		[](const void *This, SerializerStream &ss){
-			ss.serialize_id((T **)This);
-		},
-		type_id
-	);
-}
+ObjectNode get_object_node(T **p, std::uint32_t type_id);
 
 template <typename T>
 ObjectNode get_object_node(const std::shared_ptr<T *> &n, std::uint32_t type_id){
@@ -114,26 +95,10 @@ ObjectNode get_object_node(const std::shared_ptr<T *> &n, std::uint32_t type_id)
 }
 
 template <typename T>
-ObjectNode get_object_node(std::shared_ptr<T> *p, std::uint32_t type_id){
-	return ObjectNode(
-		p,
-		[](const void *This, SerializerStream &ss){
-			ss.serialize_id((std::shared_ptr<T> *)This);
-		},
-		type_id
-	);
-}
+ObjectNode get_object_node(std::shared_ptr<T> *p, std::uint32_t type_id);
 
 template <typename T>
-ObjectNode get_object_node_sequence(T *p, std::uint32_t type_id){
-	return ObjectNode(
-		p,
-		[](const void *This, SerializerStream &ss){
-			ss.serialize_id((T *)This);
-		},
-		type_id
-	);
-}
+ObjectNode get_object_node_sequence(T *p, std::uint32_t type_id);
 
 template <typename T>
 ObjectNode get_object_node(std::vector<T> *p, std::uint32_t type_id){
@@ -156,15 +121,7 @@ ObjectNode get_object_node(std::unordered_set<T> *p, std::uint32_t type_id){
 }
 
 template <typename T>
-ObjectNode get_object_node_assoc(T *p, std::uint32_t type_id){
-	return ObjectNode(
-		p,
-		[](const void *This, SerializerStream &ss){
-			ss.serialize_id((T *)This);
-		},
-		type_id
-	);
-}
+ObjectNode get_object_node_assoc(T *p, std::uint32_t type_id);
 
 template <typename T1, typename T2>
 ObjectNode get_object_node(std::map<T1, T2> *p, std::uint32_t type_id){
@@ -246,6 +203,8 @@ struct is_simply_constructible{
 		is_string<T>::value;
 };
 
+class Serializable;
+
 template <typename T>
 struct is_serializable{
 	static const bool value = std::is_base_of<Serializable, T>::value;
@@ -257,11 +216,7 @@ template <typename T>
 struct proxy_constructor{
 	DeserializerStream &ds;
 	proxy_constructor(DeserializerStream &ds): ds(ds){}
-	operator T() const{
-		T temp;
-		this->ds.deserialize(temp);
-		return std::move(temp);
-	}
+	operator T() const;
 };
 
 #endif

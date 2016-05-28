@@ -500,6 +500,7 @@ void CppFile::generate_header(){
 		"#include \"Serializable.h\"\n"
 		"#include \"SerializerStream.h\"\n"
 		"#include \"DeserializerStream.h\"\n"
+		"#include \"serialization_utils.inl\"\n"
 		"\n";
 
 	for (auto &e : this->elements){
