@@ -9,6 +9,7 @@
 #include <sstream>
 #include <array>
 #include <iomanip>
+#include <cctype>
 #endif
 
 std::mt19937_64 rng;
@@ -478,15 +479,30 @@ void CppFile::assign_type_ids(){
 		this->type_map[kv.second.first] = kv.second.second;
 }
 
+std::string filename_to_macro(std::string ret){
+	for (auto &c : ret)
+		if (c == '.')
+			c = '_';
+		else
+			c = toupper(c);
+	return ret;
+}
+
 void CppFile::generate_header(){
 	this->assign_type_ids();
 
-	std::ofstream file((this->get_name() + ".generated.h").c_str());
+	auto filename = this->get_name() + ".generated.h";
+	auto macro = filename_to_macro(filename);
+
+	std::ofstream file(filename.c_str());
 
 	file <<
 		"#ifdef _MSC_VER\n"
 		"#pragma once\n"
 		"#endif\n"
+		"\n"
+		"#ifndef " << macro << "\n"
+		"#define " << macro << "\n"
 		"\n";
 
 	std::set<std::string> includes;
@@ -522,6 +538,8 @@ void CppFile::generate_header(){
 			file << e;
 		file << std::endl;
 	}
+
+	file << "\n#endif\n";
 }
 
 std::string generate_get_metadata_signature(){
