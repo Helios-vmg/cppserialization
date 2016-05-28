@@ -29,6 +29,7 @@ class SerializableMetadata;
 
 class Serializable{
 public:
+	virtual ~Serializable(){}
 	virtual void get_object_node(std::vector<ObjectNode> &) const = 0;
 	ObjectNode get_object_node() const{
 		return ObjectNode(
