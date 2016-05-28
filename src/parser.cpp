@@ -182,7 +182,7 @@ public:
 
 class TypeSpecificationNonTerminal{
 public:
-	virtual ~TypeSpecificationNonTerminal() = 0{}
+	virtual ~TypeSpecificationNonTerminal() = 0;
 
 	virtual std::shared_ptr<Type> create_type() const = 0;
 	static std::shared_ptr<TypeSpecificationNonTerminal> create(std::deque<std::shared_ptr<Token>> &input);
@@ -220,7 +220,7 @@ public:
 
 class ClassInternalNonTerminal{
 public:
-	virtual ~ClassInternalNonTerminal() = 0{}
+	virtual ~ClassInternalNonTerminal() = 0;
 	static std::shared_ptr<ClassInternalNonTerminal> create(std::deque<std::shared_ptr<Token>> &input);
 	virtual void modify_class(const std::shared_ptr<UserClass> &Class, Accessibility &current_accessibility) const = 0;
 };
@@ -253,7 +253,7 @@ public:
 
 class TypeDeclarationNonTerminal{
 public:
-	virtual ~TypeDeclarationNonTerminal() = 0{}
+	virtual ~TypeDeclarationNonTerminal() = 0;
 	static std::shared_ptr<TypeDeclarationNonTerminal> create(std::deque<std::shared_ptr<Token>> &input, bool assume_abstract = false);
 	virtual std::shared_ptr<CppElement> initial_declaration(CppFile &) const = 0;
 	virtual void finish_declaration(const std::shared_ptr<CppElement> &) const = 0;
@@ -468,6 +468,8 @@ CppNonTerminal::CppNonTerminal(std::deque<std::shared_ptr<Token>> &input){
 	input.pop_front();
 }
 
+TypeDeclarationNonTerminal::~TypeDeclarationNonTerminal(){}
+
 std::shared_ptr<TypeDeclarationNonTerminal> TypeDeclarationNonTerminal::create(std::deque<std::shared_ptr<Token>> &input, bool assume_abstract){
 	require_token_type(input, TokenType::FixedToken);
 	auto type = std::static_pointer_cast<FixedToken>(input.front())->get_type();
@@ -559,6 +561,8 @@ bool is_access_specifier_token(FixedTokenType type){
 	}
 	return false;
 }
+
+ClassInternalNonTerminal::ClassInternalNonTerminal(){}
 
 std::shared_ptr<ClassInternalNonTerminal> ClassInternalNonTerminal::create(std::deque<std::shared_ptr<Token>> &input){
 	if (!input.size())
@@ -657,6 +661,8 @@ DataDeclarationNonTerminal::DataDeclarationNonTerminal(std::deque<std::shared_pt
 	require_fixed_token(input, FixedTokenType::Semicolon);
 	input.pop_front();
 }
+
+TypeSpecificationNonTerminal::~TypeSpecificationNonTerminal(){}
 
 std::shared_ptr<TypeSpecificationNonTerminal> TypeSpecificationNonTerminal::create(std::deque<std::shared_ptr<Token>> &input){
 	if (!input.size())
