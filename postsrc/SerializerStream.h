@@ -142,8 +142,6 @@ public:
 			return;
 		}
 
-		auto input = n;
-
 		const unsigned shift = 7;
 		const size_t capacity = (sizeof(n) * 8 + 6) / 7 * 2;
 		std::uint8_t buffer[capacity]; //times 2 for safety
