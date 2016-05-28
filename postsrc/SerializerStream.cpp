@@ -116,7 +116,7 @@ void SerializerStream::serialize(const Serializable &obj, bool include_typehashe
 		for (auto &n : this->node_map){
 			auto type = n.second.get_typeid();
 			if (!type)
-				throw std::exception("Unknown internal serializer error.");
+				throw InternalErrorException();
 			if (!type_map.size() || type != type_map.back().first){
 				type_map.push_back(std::make_pair(type, n.first));
 				continue;

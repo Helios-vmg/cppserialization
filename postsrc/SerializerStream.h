@@ -18,6 +18,13 @@
 
 class Serializable;
 
+class InternalErrorException : public std::exception{
+public:
+	const char *what() const noexcept override{
+		return "Unknown internal serializer error.";
+	}
+};
+
 template <typename T>
 typename std::make_unsigned<T>::type ints_to_uints(T z){
 	typedef typename std::make_unsigned<T>::type u;
