@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "parser.h"
 #include "las.h"
+#include "GenericException.h"
 
 //------------------------------------------------------------------------------
 
@@ -362,7 +363,7 @@ std::deque<std::shared_ptr<Token>> tokenize(std::deque<char> &input){
 				input.pop_front();
 				continue;
 			}
-			throw std::exception();
+			throw GenericException();
 		}
 		if (c == '/'){
 			seen_first_comment_char = true;
@@ -421,7 +422,7 @@ std::deque<std::shared_ptr<Token>> tokenize(std::deque<char> &input){
 			ret.push_back(std::make_shared<IntegerToken>(integer));
 			continue;
 		}
-		throw std::exception();
+		throw GenericException();
 	}
 	return ret;
 }
@@ -767,7 +768,7 @@ void ClassNonTerminal::finish_declaration(const std::shared_ptr<CppElement> &ele
 	auto Class = std::dynamic_pointer_cast<UserClass>(element);
 
 	if (!Class)
-		throw std::exception("Internal error: program in unknown state!");
+		throw GenericException("Internal error: program in unknown state!");
 
 	for (auto &b : this->base_classes){
 		auto it = dsl_type_map.find(b->get_name());
@@ -795,7 +796,7 @@ void AccessSpecifierNonTerminal::modify_class(const std::shared_ptr<UserClass> &
 			current_accessibility = Accessibility::Private;
 			break;
 		default:
-			throw std::exception();
+			throw GenericException();
 	}
 }
 
@@ -846,7 +847,7 @@ std::shared_ptr<Type> NullaryTypeSpecificationNonTerminal::create_type() const{
 		case FixedTokenType::WString:
 			return std::make_shared<StringType>(CharacterWidth::Wide);
 		default:
-			throw std::exception("Internal error: program in unknown state!");
+			throw GenericException("Internal error: program in unknown state!");
 	}
 }
 
@@ -867,7 +868,7 @@ std::shared_ptr<Type> UnaryTypeSpecificationNonTerminal::create_type() const{
 		case FixedTokenType::UnorderedSet:
 			return std::make_shared<HashSetType>(this->inner_type->create_type());
 		default:
-			throw std::exception("Internal error: program in unknown state!");
+			throw GenericException("Internal error: program in unknown state!");
 	}
 }
 
@@ -880,6 +881,6 @@ std::shared_ptr<Type> BinaryTypeSpecificationNonTerminal::create_type() const{
 		case FixedTokenType::UnorderedMap:
 			return std::make_shared<HashMapType>(type1, type2);
 		default:
-			throw std::exception("Internal error: program in unknown state!");
+			throw GenericException("Internal error: program in unknown state!");
 	}
 }

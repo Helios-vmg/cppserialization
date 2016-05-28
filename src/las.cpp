@@ -3,6 +3,7 @@
 #include "util.h"
 #include "variable_formatter.h"
 #include "typehash.h"
+#include "GenericException.h"
 #ifndef HAVE_PRECOMPILED_HEADERS
 #include <fstream>
 #include <sstream>
@@ -625,7 +626,7 @@ void CppFile::generate_is_serializable(std::ostream &stream){
 	for (auto &kv : this->type_map){
 		std::uint32_t u = kv.second->get_is_serializable();
 		if (kv.second->get_type_id() != ++i)
-			throw std::exception("Unknown program state!");
+			throw GenericException("Unknown program state!");
 		u <<= bit;
 		if (!bit)
 			flags.push_back(u);
