@@ -2,6 +2,8 @@
 #include "parser.h"
 #include "las.h"
 #include "GenericException.h"
+#include <fstream>
+#include <cassert>
 
 //------------------------------------------------------------------------------
 
@@ -428,7 +430,8 @@ std::deque<std::shared_ptr<Token>> tokenize(std::deque<char> &input){
 }
 
 std::deque<std::shared_ptr<Token>> tokenize(const std::vector<char> &input){
-	return tokenize(to_deque(input));
+	auto deque = to_deque(input);
+	return tokenize(deque);
 }
 
 void require_token_type(std::deque<std::shared_ptr<Token>> &input, TokenType type){
