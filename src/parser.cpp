@@ -565,7 +565,7 @@ bool is_access_specifier_token(FixedTokenType type){
 	return false;
 }
 
-ClassInternalNonTerminal::ClassInternalNonTerminal(){}
+ClassInternalNonTerminal::~ClassInternalNonTerminal(){}
 
 std::shared_ptr<ClassInternalNonTerminal> ClassInternalNonTerminal::create(std::deque<std::shared_ptr<Token>> &input){
 	if (!input.size())
