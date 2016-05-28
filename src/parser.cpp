@@ -123,7 +123,7 @@ public:
 		this->message += stream.str();
 		return *this;
 	}
-	const char *what() const noexcept override{
+	const char *what() const NOEXCEPT override{
 		return this->message.c_str();
 	}
 };

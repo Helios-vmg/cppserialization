@@ -15,12 +15,13 @@
 #include <climits>
 #include <array>
 #include "serialization_utils.h"
+#include "noexcept.h"
 
 class Serializable;
 
 class InternalErrorException : public std::exception{
 public:
-	const char *what() const noexcept override{
+	const char *what() const NOEXCEPT override{
 		return "Unknown internal serializer error.";
 	}
 };
