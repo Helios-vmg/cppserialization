@@ -8,7 +8,6 @@
 #include <sstream>
 #include <array>
 #include <iomanip>
-#include <boost/format.hpp>
 #endif
 
 std::mt19937_64 rng;

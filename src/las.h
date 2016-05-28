@@ -9,8 +9,6 @@
 #include <map>
 #include <functional>
 #include <cstdint>
-#include <boost/bimap.hpp>
-#include <boost/bimap/set_of.hpp>
 #include <random>
 #endif
 #include "typehash.h"

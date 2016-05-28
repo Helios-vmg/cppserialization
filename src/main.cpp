@@ -3,7 +3,6 @@
 #include "util.h"
 #include "parser.h"
 #ifndef HAVE_PRECOMPILED_HEADERS
-#include "tinyxml2/tinyxml2.h"
 #include <unordered_map>
 #include <sstream>
 #include <functional>
