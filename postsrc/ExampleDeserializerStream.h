@@ -29,7 +29,7 @@ public:
 				break;
 		}
 	}
-	virtual const char *what() const override{
+	virtual const char *what() const noexcept override{
 		return this->message;
 	}
 };
