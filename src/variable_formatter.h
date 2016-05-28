@@ -44,8 +44,8 @@ public:
 	void set_variables(const std::map<str_t, str_t> &vars){
 		this->variables = vars;
 	}
-	template <typename T>
-	void add_variable(const str_t &key, const T &value){
+	template <typename T2>
+	void add_variable(const str_t &key, const T2 &value){
 		std::stringstream stream;
 		stream << value;
 		this->variables[key] = stream.str();
