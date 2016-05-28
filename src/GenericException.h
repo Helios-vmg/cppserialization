@@ -6,7 +6,7 @@
 class GenericException : public std::exception{
 	const char *cmessage;
 public:
-	GenericException(const char *message): cmessage(message){}
+	GenericException(const char *message = ""): cmessage(message){}
 	virtual ~GenericException(){}
 	virtual const char *what() const noexcept{
 		return this->cmessage;
