@@ -1,6 +1,7 @@
 #include "DeserializerStream.h"
 #include "Serializable.h"
 #include <cstdint>
+#include <cassert>
 
 DeserializerStream::DeserializerStream(std::istream &stream): stream(&stream){
 }
@@ -45,7 +46,7 @@ Serializable *DeserializerStream::deserialize(SerializableMetadata &metadata, bo
 		wire_size_t size;
 		this->deserialize(size);
 		type_map.reserve((size_t)size);
-		for (auto i = size; size--;){
+		while (size--){
 			std::uint32_t type_id;
 			objectid_t object_id;
 			this->deserialize(type_id);
@@ -120,6 +121,8 @@ Serializable *DeserializerStream::deserialize(SerializableMetadata &metadata, bo
 					::operator delete(pair.second);
 				this->node_map.clear();
 				break;
+			case State::Done:
+				assert(false);
 		}
 		throw;
 	}

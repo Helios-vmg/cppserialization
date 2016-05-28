@@ -162,9 +162,14 @@ public:
 	template <typename T>
 	typename std::enable_if<std::is_floating_point<T>::value, void>::type serialize(T x){
 		static_assert(std::numeric_limits<T>::is_iec559, "Only iec559 float/doubles supported!");
-		typedef typename floating_point_mapping<T>::type u;
-		static_assert(sizeof(u) == sizeof(T), "Hard-coded integer type doesn't match the size of requested float type!");
-		this->serialize_fixed(*(const u *)&x);
+		typedef typename floating_point_mapping<T>::type U;
+		static_assert(sizeof(U) == sizeof(T), "Hard-coded integer type doesn't match the size of requested float type!");
+		union{
+			T floating;
+			U integer;
+		} u;
+		u.floating = x;
+		this->serialize_fixed(u.integer);
 	}
 	template <typename T>
 	void serialize(const std::basic_string<T> &s){

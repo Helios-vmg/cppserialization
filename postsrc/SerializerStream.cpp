@@ -4,8 +4,8 @@
 #include <cassert>
 
 SerializerStream::SerializerStream(std::ostream &stream):
-		stream(&stream),
-		next_object_id(1){
+	next_object_id(1),
+	stream(&stream){
 }
 
 SerializerStream::objectid_t SerializerStream::get_new_oid(){
