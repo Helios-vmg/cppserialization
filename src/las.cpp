@@ -394,7 +394,7 @@ void UserClass::generate_source(std::ostream &stream) const{
 		"{gmd}"
 		"}}\n"
 		"\n";
-	variable_formatter vf = format;
+	variable_formatter vf(format);
 	vf
 		<< "name" << this->name
 		<< "ctor" << this->generate_deserializer()
@@ -642,7 +642,7 @@ void CppFile::generate_is_serializable(std::ostream &stream){
 		"type--;\n"
 		"return (is_serializable[type / 32] >> (type & 31)) & 1;\n"
 		"}}\n";
-	variable_formatter vf = format;
+	variable_formatter vf(format);
 	std::stringstream temp;
 	for (auto u : flags)
 		temp << "0x" << std::hex << std::setw(8) << std::setfill('0') << (int)u << ", ";
