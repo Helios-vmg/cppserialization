@@ -115,6 +115,7 @@ void Type::generate_deserializer(std::ostream &stream, const char *deserializer_
 }
 
 void Type::generate_rollbacker(std::ostream &stream, const char *pointer_name) const{
+	stream << "{}";
 }
 
 void Type::generate_is_serializable(std::ostream &stream) const{
@@ -138,7 +139,7 @@ void PointerType::generate_pointer_enumerator(generate_pointer_enumerator_callba
 	if (!this->inner->is_serializable())
 		stream << "::get_object_node(" << this_name << ", static_get_type_id<" << this->inner << ">::value)";
 	else
-		stream << "::get_object_node((Serializable *)(" << this_name << ").get())";
+		stream << "::get_object_node((Serializable *)" << this_name << ")";
 	callback(stream.str(), CallMode::TransformAndAdd);
 }
 
