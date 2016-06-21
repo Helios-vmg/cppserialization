@@ -692,8 +692,15 @@ void CppFile::generate_aux(){
 		"\n"
 		"std::pair<std::uint32_t, TypeHash> " << array_name << "[] = {\n";
 
-	for (auto &i : this->type_map)
-		file << "{ " << i.first << ", TypeHash(" << i.second->get_type_hash().to_string() << ")},\n";
+	for (auto &i : this->type_map){
+		auto type = i.second;
+		auto ts = type->get_type_string();
+		if (dynamic_cast<UserClass *>(type))
+			ts = static_cast<UserClass *>(type)->base_get_type_string();
+		file
+			<< "// " << ts << "\n"
+			<< "{ " << i.first << ", TypeHash(" << type->get_type_hash().to_string() << ")},\n";
+	}
 
 	file <<
 		"};\n"

@@ -37,8 +37,8 @@ typedef const std::function<std::string (const std::string &, CallMode)> generat
 
 class Type{
 	std::uint32_t type_id;
-	std::unique_ptr<TypeHash> type_hash;
 protected:
+	std::unique_ptr<TypeHash> type_hash;
 	typedef const std::function<void(Type &, std::uint32_t &)> iterate_callback_t;
 	virtual void iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited){
 		callback(*this, this->type_id);
@@ -73,7 +73,7 @@ public:
 		return this->type_id;
 	}
 	virtual std::string get_type_string() const = 0;
-	const TypeHash &get_type_hash(){
+	virtual const TypeHash &get_type_hash(){
 		if (!this->type_hash)
 			this->type_hash.reset(new TypeHash(this->get_type_string()));
 		return *this->type_hash;
@@ -628,6 +628,11 @@ public:
 	void generate_deserializer(std::ostream &) const;
 	std::string get_type_string() const override{
 		return this->name;
+	}
+	const TypeHash &get_type_hash() override{
+		if (!this->type_hash)
+			this->type_hash.reset(new TypeHash(this->base_get_type_string()));
+		return *this->type_hash;
 	}
 	std::string base_get_type_string() const;
 	void generate_get_type_hash(std::ostream &) const;
