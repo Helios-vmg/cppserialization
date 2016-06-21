@@ -24,6 +24,9 @@ public:
 			case DeserializerStream::ErrorType::AllocateAbstractObject:
 				this->message = "DeserializationError: The stream contains a concrete object with an abstract class type ID.";
 				break;
+			case DeserializerStream::ErrorType::AllocateObjectOfUnknownType:
+				this->message = "DeserializationError: The stream contains an object of an unknown type.";
+				break;
 			default:
 				this->message = "DeserializationError: Unknown.";
 				break;

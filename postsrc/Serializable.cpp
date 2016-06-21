@@ -1,14 +1,17 @@
 #include "Serializable.h"
 
-void *SerializableMetadata::allocate_memory(std::uint32_t type){
-	return this->allocator(this->map_type(type));
+void *SerializableMetadata::allocate_memory(DeserializerStream &ds, std::uint32_t type){
+	type = this->map_type(type);
+	if (!type)
+		ds.report_error(DeserializerStream::ErrorType::AllocateObjectOfUnknownType);
+	return this->allocator(type);
 }
 
 std::uint32_t SerializableMetadata::map_type(std::uint32_t input){
-	if (!this->typemap.size())
+	if (!this->typemap)
 		return input;
-	auto it = this->typemap.find(input);
-	if (it == this->typemap.end())
+	auto it = this->typemap->find(input);
+	if (it == this->typemap->end())
 		return 0;
 	return it->second;
 }
@@ -29,12 +32,12 @@ void SerializableMetadata::add_type(std::uint32_t type, const TypeHash &type_has
 }
 
 void SerializableMetadata::set_type_mappings(const std::vector<std::pair<std::uint32_t, TypeHash> > &typehashes){
-	this->typemap.clear();
+	this->typemap.reset(new decltype(this->typemap)::element_type);
 	for (auto &p : typehashes){
 		auto known_type = this->known_type_from_hash(p.second);
 		if (!known_type)
 			continue;
-		this->typemap[p.first] = known_type;
+		(*this->typemap)[p.first] = known_type;
 	}
 }
 

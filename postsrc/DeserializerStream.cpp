@@ -68,7 +68,7 @@ Serializable *DeserializerStream::deserialize(SerializableMetadata &metadata, bo
 				std::uint32_t type_id = p.first;
 				for (; object_id <= p.second; object_id++){
 					object_types[object_id] = type_id;
-					auto mem = metadata.allocate_memory(type_id);
+					auto mem = metadata.allocate_memory(*this, type_id);
 					if (!mem)
 						this->report_error(ErrorType::AllocateAbstractObject);
 

@@ -54,6 +54,8 @@ inline ObjectNode get_object_node(const Serializable *serializable){
 	return !serializable ? ObjectNode() : serializable->get_object_node();
 }
 
+class DeserializerStream;
+
 class SerializableMetadata{
 public:
 	typedef void *(*allocator_t)(std::uint32_t);
@@ -63,7 +65,7 @@ public:
 private:
 	std::vector<std::pair<std::uint32_t, TypeHash> > known_types;
 	//Used for deserialization.
-	std::map<std::uint32_t, std::uint32_t> typemap;
+	std::unique_ptr<std::map<std::uint32_t, std::uint32_t>> typemap;
 	allocator_t allocator;
 	constructor_t constructor;
 	rollbacker_t rollbacker;
@@ -86,7 +88,7 @@ public:
 		this->rollbacker = rollbacker;
 		this->is_serializable = is_serializable;
 	}
-	void *allocate_memory(std::uint32_t);
+	void *allocate_memory(DeserializerStream &ds, std::uint32_t);
 	void construct_memory(std::uint32_t, void *, DeserializerStream &);
 	void rollback_construction(std::uint32_t, void *);
 	bool type_is_serializable(std::uint32_t);

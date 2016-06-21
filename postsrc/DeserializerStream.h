@@ -26,6 +26,7 @@ public:
 		InvalidProgramState,
 		MainObjectNotSerializable,
 		AllocateAbstractObject,
+		AllocateObjectOfUnknownType,
 	};
 private:
 	typedef std::uint32_t objectid_t;
@@ -140,11 +141,10 @@ private:
 		while (m.size() != (size_t)size)
 			m.emplace(std::pair<DS &, DS &>(*this, *this));
 	}
-protected:
-	virtual void report_error(ErrorType, const char * = 0) = 0;
 public:
 	DeserializerStream(std::istream &);
 	virtual ~DeserializerStream(){}
+	virtual void report_error(ErrorType, const char * = 0) = 0;
 	template <typename Target>
 	Target *deserialize(bool includes_typehashes = false){
 		auto metadata = Target::static_get_metadata();
