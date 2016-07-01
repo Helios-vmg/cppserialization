@@ -146,7 +146,7 @@ public:
 	virtual ~DeserializerStream(){}
 	virtual void report_error(ErrorType, const char * = 0) = 0;
 	template <typename Target>
-	Target *deserialize(bool includes_typehashes = false){
+	Target *full_deserialization(bool includes_typehashes = false){
 		auto metadata = Target::static_get_metadata();
 		auto p = this->deserialize(*metadata, includes_typehashes);
 		auto ret = dynamic_cast<Target *>(p);

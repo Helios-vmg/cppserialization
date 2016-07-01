@@ -26,7 +26,7 @@ SerializerStream::objectid_t SerializerStream::save_object(const void *p){
 #define LOG
 #endif
 
-void SerializerStream::serialize(const Serializable &obj, bool include_typehashes){
+void SerializerStream::full_serialization(const Serializable &obj, bool include_typehashes){
 	auto node = obj.get_object_node();
 #ifdef LOG
 	std::clog << "Traversing reference graph...\n";
