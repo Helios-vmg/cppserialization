@@ -64,7 +64,7 @@ void SerializerStream::full_serialization(const Serializable &obj, bool include_
 	if (include_typehashes){
 #ifdef LOG
 		std::clog <<
-			"Travesal found " << this->node_map.size() << " objects.\n"
+			"Traversal found " << this->node_map.size() << " objects.\n"
 			"Serializing type hashes...\n";
 #endif
 		auto list = obj.get_metadata()->get_known_types();
