@@ -16,7 +16,7 @@ int main(){
 			SerializerStream ss(file);
 			auto t0 = std::chrono::high_resolution_clock::now();
 			try{
-				ss.serialize(graph, true);
+				ss.full_serialization(graph, true);
 			}catch (std::exception &){
 				return 0;
 			}
@@ -35,7 +35,7 @@ int main(){
 
 			ExampleDeserializerStream ds(file);
 			auto t0 = std::chrono::high_resolution_clock::now();
-			graph.reset(ds.deserialize<::graph>(true));
+			graph.reset(ds.full_deserialization<::graph>(true));
 			auto t1 = std::chrono::high_resolution_clock::now();
 
 			if (!graph){

@@ -1,4 +1,5 @@
 #include "Serializable.h"
+#include "DeserializerStream.h"
 
 void *SerializableMetadata::allocate_memory(DeserializerStream &ds, std::uint32_t type){
 	type = this->map_type(type);
