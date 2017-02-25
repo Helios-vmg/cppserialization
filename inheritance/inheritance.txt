@@ -1,0 +1,22 @@
+cpp inheritance{
+	class inheritance_graph{
+	public:
+		vector<shared_ptr<A>> nodesA;
+		vector<shared_ptr<B>> nodesB;
+		#include "inheritance_graph.h"
+	}
+	class A{
+	public:
+		string data_a;
+		#include "A.h"
+	}
+	class B{
+	public:
+		vector<string> data_b;
+		#include "B.h"
+	}
+	class C : A, B{
+		double data_c;
+		#include "C.h"
+	}
+}
