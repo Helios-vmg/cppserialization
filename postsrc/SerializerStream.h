@@ -69,29 +69,37 @@ struct floating_point_mapping<long double>{
 	typedef std::uintmax_t type;
 };
 
+template <typename T>
+struct is_built_in_type{
+	static const bool value = std::is_integral<T>::value || std::is_pointer<T>::value || std::is_floating_point<T>::value || std::is_enum<T>::value;
+};
+
 class SerializerStream{
 	typedef std::uint32_t objectid_t;
 	static const objectid_t null_oid = 0;
 	objectid_t next_object_id;
-	std::unordered_map<uintptr_t, objectid_t> id_map;
+	std::map<std::pair<bool, uintptr_t>, objectid_t> id_map;
 	std::map<objectid_t, ObjectNode> node_map;
 	std::ostream *stream;
 
 	objectid_t get_new_oid();
-	objectid_t save_object(const void *p);
+	objectid_t save_object(const std::pair<bool, uintptr_t> &p);
+	void serialize_id_private(const void *p);
+	template <typename T>
+	typename std::enable_if<is_built_in_type<T>::value, void>::type
+	serialize_id(const T *p){
+		this->serialize_id_private(p);
+	}
+	void serialize_id(const std::string *p){
+		this->serialize_id_private(p);
+	}
+	void serialize_id(const std::wstring *p){
+		this->serialize_id_private(p);
+	}
+	void serialize_id(const Serializable *p);
 public:
 	SerializerStream(std::ostream &);
 	void full_serialization(const Serializable &obj, bool include_typehashes = false);
-	void serialize_id(const void *p){
-		if (!p){
-			this->serialize(0);
-			return;
-		}
-		auto it = this->id_map.find((uintptr_t)p);
-		if (it == this->id_map.end())
-			abort();
-		this->serialize(it->second);
-	}
 	template <typename T>
 	void serialize(const T *t){
 		this->serialize_id(t);

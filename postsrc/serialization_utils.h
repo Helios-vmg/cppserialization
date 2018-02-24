@@ -16,6 +16,7 @@
 #include <unordered_map>
 
 class SerializerStream;
+class Serializable;
 
 class ObjectNode{
 public:
@@ -27,22 +28,32 @@ private:
 	get_children_t get_children_f;
 	serialize_t serialize_f;
 	std::uint32_t type_id;
+	bool is_serializable;
 public:
 	ObjectNode()
 		: address(nullptr)
 		, get_children_f(nullptr)
 		, serialize_f(nullptr)
-		, type_id(0){}
+		, type_id(0)
+		, is_serializable(false){}
 	ObjectNode(const void *address, get_children_t get_children_f, serialize_t serialize_f, std::uint32_t type_id)
 		: address(address)
 		, get_children_f(get_children_f)
 		, serialize_f(serialize_f)
-		, type_id(type_id){}
+		, type_id(type_id)
+		, is_serializable(false){}
+	ObjectNode(const Serializable *address, get_children_t get_children_f, serialize_t serialize_f, std::uint32_t type_id)
+		: address(address)
+		, get_children_f(get_children_f)
+		, serialize_f(serialize_f)
+		, type_id(type_id)
+		, is_serializable(true){}
 	ObjectNode(const void *address, serialize_t serialize_f, std::uint32_t type_id)
 		: address(address)
 		, get_children_f(nullptr)
 		, serialize_f(serialize_f)
-		, type_id(type_id){}
+		, type_id(type_id)
+		, is_serializable(false){}
 	void get_children(std::vector<ObjectNode> &dst){
 		if (this->get_children_f)
 			this->get_children_f(this->address, dst);
@@ -56,6 +67,7 @@ public:
 	const void *get_address() const{
 		return this->address;
 	}
+	std::pair<bool, uintptr_t> get_identity() const;
 };
 
 template <typename T>
@@ -217,6 +229,24 @@ struct proxy_constructor{
 	DeserializerStream &ds;
 	proxy_constructor(DeserializerStream &ds): ds(ds){}
 	operator T() const;
+};
+
+template <typename T>
+struct static_get_type_id{
+	static const std::uint32_t value = 0;
+};
+
+template <typename T>
+class conditional_deleter{
+	bool enabled = true;
+public:
+	void disable(){
+		this->enabled = false;
+	}
+	void operator()(T *p){
+		if (this->enabled)
+			delete p;
+	}
 };
 
 #endif

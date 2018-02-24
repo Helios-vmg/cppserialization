@@ -12,14 +12,35 @@ SerializerStream::objectid_t SerializerStream::get_new_oid(){
 	return this->next_object_id++;
 }
 
-SerializerStream::objectid_t SerializerStream::save_object(const void *p){
-	auto up = (uintptr_t)p;
-	auto it = this->id_map.find(up);
+SerializerStream::objectid_t SerializerStream::save_object(const std::pair<bool, uintptr_t> &p){
+	auto it = this->id_map.find(p);
 	if (it != this->id_map.end())
 		return null_oid;
 	auto ret = this->get_new_oid();
-	this->id_map[up] = ret;
+	this->id_map[p] = ret;
 	return ret;
+}
+
+void SerializerStream::serialize_id_private(const void *p){
+	if (!p){
+		this->serialize(0);
+		return;
+	}
+	auto it = this->id_map.find(std::make_pair(false, (uintptr_t)p));
+	if (it == this->id_map.end())
+		abort();
+	this->serialize(it->second);
+}
+
+void SerializerStream::serialize_id(const Serializable *p){
+	if (!p){
+		this->serialize(0);
+		return;
+	}
+	auto it = this->id_map.find(std::make_pair(true, (uintptr_t)p->get_id()));
+	if (it == this->id_map.end())
+		abort();
+	this->serialize(it->second);
 }
 
 #if defined _DEBUG || defined TESTING_BUILD
@@ -35,9 +56,9 @@ void SerializerStream::full_serialization(const Serializable &obj, bool include_
 	objectid_t root_object = 0;
 	{
 		std::vector<decltype(node)> stack, temp_stack;
-		this->id_map[0] = 0;
+		this->id_map[std::make_pair(false, 0)] = 0;
 
-		auto id = this->save_object(node.get_address());
+		auto id = this->save_object(node.get_identity());
 		assert(id);
 		root_object = id;
 		this->node_map[id] = node;
@@ -51,7 +72,7 @@ void SerializerStream::full_serialization(const Serializable &obj, bool include_
 				continue;
 			top.get_children(temp_stack);
 			for (auto &i : temp_stack){
-				id = this->save_object(i.get_address());
+				id = this->save_object(i.get_identity());
 				if (!id)
 					continue;
 				this->node_map[id] = i;
@@ -90,13 +111,13 @@ void SerializerStream::full_serialization(const Serializable &obj, bool include_
 		decltype(this->node_map) temp;
 		bool root_set = false;
 		this->id_map.clear();
-		this->id_map[0] = 0;
+		this->id_map[std::make_pair(false, 0)] = 0;
 		for (auto &r : remap){
 			for (auto i : r.second){
 				auto &node = this->node_map[i];
 				if (!node.get_address())
 					continue;
-				auto oid = this->save_object(node.get_address());
+				auto oid = this->save_object(node.get_identity());
 				if (!root_set && i == root_object){
 					root_object = oid;
 					root_set = true;
@@ -104,7 +125,7 @@ void SerializerStream::full_serialization(const Serializable &obj, bool include_
 				temp[oid] = node;
 			}
 		}
-		this->node_map = temp;
+		this->node_map = std::move(temp);
 	}
 
 #ifdef LOG

@@ -37,6 +37,8 @@ DEFINE_get_X_function_name(allocator)
 DEFINE_get_X_function_name(constructor)
 DEFINE_get_X_function_name(rollbacker)
 DEFINE_get_X_function_name(is_serializable)
+DEFINE_get_X_function_name(dynamic_cast)
+DEFINE_get_X_function_name(allocate_pointer)
 
 std::string IntegerType::get_type_string() const{
 	std::stringstream stream;
@@ -209,10 +211,13 @@ void UserClass::generate_header(std::ostream &stream) const{
 				stream << ", ";
 			else
 				first = false;
-			stream << "public " << base->name;
+			stream << "public ";
+			if (base->must_be_virtual)
+				stream << "virtual ";
+			stream << base->name;
 		}
 	}else
-		stream << "public Serializable";
+		stream << "public virtual Serializable";
 	stream << "{\n";
 	for (auto &el : this->elements)
 		stream << "" << el << (el->needs_semicolon() ? ";\n" : "\n");
@@ -453,6 +458,38 @@ std::string UserClass::base_get_type_string() const{
 	return stream.str();
 }
 
+void UserClass::walk_class_hierarchy(const std::function<bool(UserClass &)> &callback){
+	if (!callback(*this))
+		return;
+	for (auto &p : this->base_classes)
+		p->walk_class_hierarchy(callback);
+}
+
+void UserClass::mark_virtual_base_classes(){
+	this->walk_class_hierarchy([](UserClass &uc){
+		uc.diamond_detection = std::numeric_limits<std::uint32_t>::max();
+		return true;
+	});
+	this->walk_class_hierarchy([this](UserClass &uc){
+		auto id = this->get_type_id();
+		if (uc.diamond_detection == id){
+			uc.must_be_virtual = true;
+			return false;
+		}
+		uc.diamond_detection = id;
+		return true;
+	});
+}
+
+bool UserClass::is_subclass_of(const UserClass &other) const{
+	if (this->get_type_id() == other.get_type_id())
+		return true;
+	for (auto &c : this->base_classes)
+		if (c->is_subclass_of(other))
+			return true;
+	return false;
+}
+
 void CppFile::assign_type_ids(){
 	if (this->type_map.size())
 		return;
@@ -557,9 +594,6 @@ void CppFile::generate_source(){
 		"extern std::pair<std::uint32_t, TypeHash> " << this->get_name() << "_id_hashes[];\n"
 		"\n"
 		<< generate_get_metadata_signature() << ";\n"
-		"\n"
-		"template <typename T>\n"
-		"struct static_get_type_id{};\n"
 		"\n";
 
 	for (auto &kv : this->type_map){
@@ -603,8 +637,8 @@ void CppFile::generate_constructor(std::ostream &stream){
 	stream << "void " << get_constructor_function_name() << "(std::uint32_t type, void *s, DeserializerStream &ds){\n"
 		"typedef void (*constructor_f)(void *, DeserializerStream &);\n"
 		"static const constructor_f constructors[] = {\n";
-	for (auto &kv : this->type_map) {
-		if (kv.second->is_abstract()) {
+	for (auto &kv : this->type_map){
+		if (kv.second->is_abstract()){
 			stream << "nullptr,\n";
 			continue;
 		}
@@ -673,6 +707,280 @@ void CppFile::generate_is_serializable(std::ostream &stream){
 	stream << (std::string)vf;
 }
 
+#if 0
+void CppFile::generate_cast_offsets(std::ostream &stream){
+	std::vector<std::pair<std::uint32_t, std::uint32_t>> valid_casts;
+	for (auto &kv1 : this->type_map){
+		if (!kv1.second->is_serializable())
+			continue;
+		auto uc1 = static_cast<UserClass *>(kv1.second);
+		for (auto &kv2 : this->type_map){
+			if (!kv2.second->is_serializable())
+				continue;
+			auto uc2 = static_cast<UserClass *>(kv2.second);
+			if (uc1->is_subclass_of(*uc2))
+				valid_casts.push_back(std::make_pair(kv1.first, kv2.first));
+		}
+	}
+	std::sort(valid_casts.begin(), valid_casts.end());
+
+
+	const char *format =
+		"std::vector<std::tuple<std::uint32_t, std::uint32_t, int>> {function_name}(){{\n"
+		"const auto k = std::numeric_limits<intptr_t>::max() / 4;\n"
+		"std::vector<std::tuple<std::uint32_t, std::uint32_t, int>> ret;\n"
+		"ret.reserve({size});\n"
+		"{ret_init}"
+		"return ret;\n"
+		"}}\n";
+	variable_formatter vf(format);
+	std::stringstream temp;
+	for (auto &kv : valid_casts){
+		temp <<
+			"ret.push_back("
+			"std::make_tuple("
+			"(std::uint32_t)" << kv.first << ", "
+			"(std::uint32_t)" << kv.second << ", ";
+		if (kv.first != kv.second){
+			temp << "(int)((intptr_t)static_cast<";
+			this->type_map[kv.second]->output(temp);
+			temp << " *>((";
+			this->type_map[kv.first]->output(temp);
+			temp << " *)k) - k)";
+		}else
+			temp << "0";
+		temp << "));\n";
+	}
+
+	vf
+		<< "function_name" << get_cast_offsets_function_name()
+		<< "size" << valid_casts.size()
+		<< "ret_init" << temp.str();
+
+	stream << (std::string)vf;
+}
+#endif
+
+void CppFile::generate_dynamic_cast(std::ostream &stream){
+	stream << "Serializable *" << get_dynamic_cast_function_name() << "(void *src, std::uint32_t type){\n"
+		"    typedef Serializable *(*cast_f)(void *);\n"
+		"    static const cast_f casts[] = {\n";
+	for (auto &kv : this->type_map){
+		if (!kv.second->is_serializable()){
+			stream << "        nullptr,\n";
+			continue;
+		}
+		stream << "        [](void *p){ return dynamic_cast<Serializable *>((";
+		kv.second->output(stream);
+		stream << " *)p); },\n";
+	}
+	stream <<
+		"    };\n"
+		"    type--;\n"
+		"    if (!casts[type])\n"
+		"        return nullptr;\n"
+		"    return casts[type](src);\n"
+		"}\n";
+}
+
+void CppFile::generate_generic_pointer_classes(std::ostream &stream){
+	for (auto &kv1 : this->type_map){
+		if (!kv1.second->is_serializable())
+			continue;
+		auto uc1 = static_cast<UserClass *>(kv1.second);
+		auto name = uc1->get_name();
+
+		stream <<
+			"class RawPointer" << name << " : public GenericPointer{\n"
+			"    std::unique_ptr<" << name << " *> real_pointer;\n"
+			"public:\n"
+			"    RawPointer" << name << "(void *p){\n"
+			"        this->real_pointer.reset(new " << name << "*((" << name << " *)p));\n"
+			"        this->pointer = this->real_pointer.get();\n"
+			"    }\n"
+			"    ~RawPointer" << name << "() = default;\n"
+			"    void release() override{}\n"
+			"    std::unique_ptr<GenericPointer> cast(std::uint32_t type) override;\n"
+			"};\n"
+			"\n"
+			;
+
+		stream <<
+			"class SharedPtr" << name << " : public GenericPointer{\n"
+			"    std::unique_ptr<std::shared_ptr<" << name << ">> real_pointer;\n"
+			"public:\n"
+			"    SharedPtr" << name << "(void *p){\n"
+			"        this->real_pointer.reset(new std::shared_ptr<" << name << ">((" << name << " *)p, conditional_deleter<" << name << ">()));\n"
+			"        this->pointer = this->real_pointer.get();\n"
+			"    }\n"
+			"    template <typename T>\n"
+			"    SharedPtr" << name << "(const std::shared_ptr<T> &p){\n"
+			"        this->real_pointer.reset(new std::shared_ptr<" << name <<">(std::static_pointer_cast<" << name << ">(p)));\n"
+			"        this->pointer = this->real_pointer.get();\n"
+			"    }\n"
+			"    ~SharedPtr" << name << "() = default;\n"
+			"    void release() override{\n"
+			"        std::get_deleter<conditional_deleter<" << name << ">> (*this->real_pointer)->disable();\n"
+			"    }\n"
+			"    std::unique_ptr<GenericPointer> cast(std::uint32_t type) override;\n"
+			"};\n"
+			"\n"
+			;
+
+		stream <<
+			"class UniquePtr" << name << " : public GenericPointer{\n"
+			"    std::unique_ptr<std::unique_ptr<" << name << ">> real_pointer;\n"
+			"public:\n"
+			"    UniquePtr" << name << "(void *p){\n"
+			"        this->real_pointer.reset(new std::unique_ptr<" << name << ">((" << name << " *)p));\n"
+			"        this->pointer = this->real_pointer.get();\n"
+			"    }\n"
+			"    ~UniquePtr" << name << "() = default;\n"
+			"    void release() override{\n"
+			"        this->real_pointer->release();\n"
+			"    }\n"
+			"    std::unique_ptr<GenericPointer> cast(std::uint32_t type) override;\n"
+			"};\n"
+			"\n"
+			;
+	}
+}
+
+void CppFile::generate_generic_pointer_class_implementations(std::ostream &stream){
+	for (auto &kv1 : this->type_map){
+		if (!kv1.second->is_serializable())
+			continue;
+		auto uc1 = static_cast<UserClass *>(kv1.second);
+		auto name = uc1->get_name();
+
+		//RawPointer
+
+		stream <<
+			"std::unique_ptr<GenericPointer> RawPointer" << name << "::cast(std::uint32_t type){\n"
+			"    switch (type){\n";
+		for (auto &kv2 : this->type_map){
+			if (!kv2.second->is_serializable())
+				continue;
+			auto uc2 = static_cast<UserClass *>(kv2.second);
+			if (!uc1->is_subclass_of(*uc2))
+				continue;
+			stream <<
+				"        case " << uc2->get_type_id() << ":\n"
+				"            return std::unique_ptr<GenericPointer>(new RawPointer" << uc2->get_name() << "(*this->real_pointer));\n";
+		}
+		stream <<
+			"        default:\n"
+			"            return std::unique_ptr<GenericPointer>();\n"
+			"    }\n"
+			"}\n";
+		
+		//SharedPtr
+
+		stream <<
+			"std::unique_ptr<GenericPointer> SharedPtr" << name << "::cast(std::uint32_t type){\n"
+			"    switch (type){\n";
+		for (auto &kv2 : this->type_map){
+			if (!kv2.second->is_serializable())
+				continue;
+			auto uc2 = static_cast<UserClass *>(kv2.second);
+			if (!uc1->is_subclass_of(*uc2))
+				continue;
+			stream <<
+				"        case " << uc2->get_type_id() << ":\n"
+				"            return std::unique_ptr<GenericPointer>(new SharedPtr" << uc2->get_name() << "(*this->real_pointer));\n";
+		}
+		stream <<
+			"        default:\n"
+			"            return std::unique_ptr<GenericPointer>();\n"
+			"    }\n"
+			"}\n";
+		
+		//UniquePtr
+
+		stream <<
+			"std::unique_ptr<GenericPointer> UniquePtr" << name << "::cast(std::uint32_t type){\n"
+			"    switch (type){\n";
+		for (auto &kv2 : this->type_map){
+			if (!kv2.second->is_serializable())
+				continue;
+			auto uc2 = static_cast<UserClass *>(kv2.second);
+			if (!uc1->is_subclass_of(*uc2))
+				continue;
+			stream <<
+				"        case " << uc2->get_type_id() << ":\n"
+				"            throw std::runtime_error(\"Multiple unique pointers to single object detected.\");\n";
+		}
+		stream <<
+			"        default:\n"
+			"            return std::unique_ptr<GenericPointer>();\n"
+			"    }\n"
+			"}\n";
+
+	}
+}
+
+void CppFile::generate_pointer_allocator(std::ostream &stream){
+	stream <<
+		"std::unique_ptr<GenericPointer> " << get_allocate_pointer_function_name() << "(std::uint32_t type, PointerType pointer_type, void *p){\n"
+		"    switch (pointer_type){\n"
+		"        case PointerType::RawPointer:\n"
+		"            switch (type){\n"
+		;
+	for (auto &kv : this->type_map){
+		if (!kv.second->is_serializable())
+			continue;
+		auto uc = static_cast<UserClass *>(kv.second);
+		auto name = uc->get_name();
+		stream <<
+			"                case " << uc->get_type_id() << ":\n"
+			"                    return std::unique_ptr<GenericPointer>(new RawPointer" << name << "(p));\n";
+	}
+	stream <<
+		"                default:\n"
+		"                    return std::unique_ptr<GenericPointer>();\n"
+		"            }\n"
+		"            break;\n"
+		"        case PointerType::SharedPtr:\n"
+		"            switch (type){\n"
+		;
+	for (auto &kv : this->type_map){
+		if (!kv.second->is_serializable())
+			continue;
+		auto uc = static_cast<UserClass *>(kv.second);
+		auto name = uc->get_name();
+		stream <<
+			"                case " << uc->get_type_id() << ":\n"
+			"                    return std::unique_ptr<GenericPointer>(new SharedPtr" << name << "(p));\n";
+	}
+	stream <<
+		"                default:\n"
+		"                    return std::unique_ptr<GenericPointer>();\n"
+		"            }\n"
+		"            break;\n"
+		"        case PointerType::UniquePtr:\n"
+		"            switch (type){\n"
+		;
+	for (auto &kv : this->type_map){
+		if (!kv.second->is_serializable())
+			continue;
+		auto uc = static_cast<UserClass *>(kv.second);
+		auto name = uc->get_name();
+		stream <<
+			"                case " << uc->get_type_id() << ":\n"
+			"                    return std::unique_ptr<GenericPointer>(new UniquePtr" << name << "(p));\n";
+	}
+	stream <<
+		"                default:\n"
+		"                    return std::unique_ptr<GenericPointer>();\n"
+		"            }\n"
+		"            break;\n"
+		"        default:\n"
+		"            throw std::runtime_error(\"Internal error. Unknown pointer type.\");\n"
+		"    }\n"
+		"}\n"
+		;
+}
+
 void CppFile::generate_aux(){
 	this->assign_type_ids();
 
@@ -685,6 +993,7 @@ void CppFile::generate_aux(){
 		"#include \"" << this->name << ".generated.h\"\n"
 		"#include <utility>\n"
 		"#include <cstdint>\n"
+		"#include <memory>\n"
 		"\n";
 	for (auto &kv : this->type_map)
 		file << "// " << kv.first << ": " << kv.second << std::endl;
@@ -712,6 +1021,16 @@ void CppFile::generate_aux(){
 	this->generate_rollbacker(file);
 	file << "\n";
 	this->generate_is_serializable(file);
+	file << "\n";
+	//this->generate_cast_offsets(file);
+	//file << "\n";
+	this->generate_dynamic_cast(file);
+	file << "\n";
+	this->generate_generic_pointer_classes(file);
+	file << "\n";
+	this->generate_generic_pointer_class_implementations(file);
+	file << "\n";
+	this->generate_pointer_allocator(file);
 	file <<
 		"\n"
 		<< generate_get_metadata_signature() << "{\n"
@@ -720,7 +1039,9 @@ void CppFile::generate_aux(){
 				<< get_allocator_function_name() << ", "
 				<< get_constructor_function_name() << ", "
 				<< get_rollbacker_function_name() << ", "
-				<< get_is_serializable_function_name()
+				<< get_is_serializable_function_name() << ", "
+				<< get_dynamic_cast_function_name() << ", "
+				<< get_allocate_pointer_function_name()
 			<<");\n"
 			"for (auto &p : " << array_name << ")\n"
 				"ret->add_type(p.first, p.second);\n"

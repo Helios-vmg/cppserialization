@@ -5,9 +5,14 @@
 #include "SerializerStream.h"
 #include <utility>
 #include <array>
+#include <atomic>
+#include <cstdint>
+
+static const std::uint32_t Serializable_type_id = std::numeric_limits<std::uint32_t>::max();
 
 class SerializerStream;
 class DeserializerStream;
+enum class PointerType;
 
 struct TypeHash{
 	unsigned char digest[32];
@@ -29,6 +34,12 @@ class SerializableMetadata;
 
 class Serializable{
 public:
+	typedef std::uintmax_t oid_t;
+private:
+	static std::atomic<oid_t> next_id;
+	oid_t id;
+public:
+	Serializable(): id(next_id++){}
 	virtual ~Serializable(){}
 	virtual void get_object_node(std::vector<ObjectNode> &) const = 0;
 	ObjectNode get_object_node() const{
@@ -48,6 +59,9 @@ public:
 	virtual TypeHash get_type_hash() const = 0;
 	virtual std::shared_ptr<SerializableMetadata> get_metadata() const = 0;
 	virtual void rollback_deserialization() = 0;
+	oid_t get_id() const{
+		return this->id;
+	}
 };
 
 inline ObjectNode get_object_node(const Serializable *serializable){
@@ -56,12 +70,23 @@ inline ObjectNode get_object_node(const Serializable *serializable){
 
 class DeserializerStream;
 
+class GenericPointer{
+public:
+	void *pointer;
+	virtual ~GenericPointer(){}
+	virtual void release() = 0;
+	virtual std::unique_ptr<GenericPointer> cast(std::uint32_t type) = 0;
+};
+
 class SerializableMetadata{
 public:
 	typedef void *(*allocator_t)(std::uint32_t);
 	typedef void (*constructor_t)(std::uint32_t, void *, DeserializerStream &);
 	typedef void (*rollbacker_t)(std::uint32_t, void *);
 	typedef bool (*is_serializable_t)(std::uint32_t);
+	//typedef std::vector<std::tuple<std::uint32_t, std::uint32_t, int>> (*cast_offsets_t)();
+	typedef Serializable *(*dynamic_cast_f)(void *, std::uint32_t);
+	typedef std::unique_ptr<GenericPointer> (*allocate_pointer_t)(std::uint32_t, PointerType, void *);
 private:
 	std::vector<std::pair<std::uint32_t, TypeHash> > known_types;
 	//Used for deserialization.
@@ -70,6 +95,9 @@ private:
 	constructor_t constructor;
 	rollbacker_t rollbacker;
 	is_serializable_t is_serializable;
+	allocate_pointer_t pointer_allocator;
+	dynamic_cast_f dynamic_cast_p;
+
 	std::uint32_t map_type(std::uint32_t);
 	std::uint32_t known_type_from_hash(const TypeHash &);
 public:
@@ -82,16 +110,23 @@ public:
 			const allocator_t &allocator,
 			const constructor_t &constructor,
 			const rollbacker_t &rollbacker,
-			const is_serializable_t &is_serializable){
+			const is_serializable_t &is_serializable,
+			const dynamic_cast_f &dynamic_cast_p,
+			const allocate_pointer_t &pointer_allocator){
 		this->allocator = allocator;
 		this->constructor = constructor;
 		this->rollbacker = rollbacker;
 		this->is_serializable = is_serializable;
+		this->dynamic_cast_p = dynamic_cast_p;
+		this->pointer_allocator = pointer_allocator;
 	}
 	void *allocate_memory(DeserializerStream &ds, std::uint32_t);
 	void construct_memory(std::uint32_t, void *, DeserializerStream &);
 	void rollback_construction(std::uint32_t, void *);
 	bool type_is_serializable(std::uint32_t);
+	//std::vector<std::tuple<std::uint32_t, std::uint32_t, int>> get_cast_offsets();
+	Serializable *perform_dynamic_cast(void *p, std::uint32_t type);
+	std::unique_ptr<GenericPointer> allocate_pointer(std::uint32_t type, PointerType pointer_type, void *pointer);
 };
 
 #endif

@@ -17,6 +17,12 @@ class Serializable;
 struct TypeHash;
 class SerializableMetadata;
 
+enum class PointerType{
+	RawPointer,
+	UniquePtr,
+	SharedPtr,
+};
+
 class DeserializerStream{
 public:
 	enum class ErrorType{
@@ -27,42 +33,61 @@ public:
 		MainObjectNotSerializable,
 		AllocateAbstractObject,
 		AllocateObjectOfUnknownType,
+		InvalidCast,
+		OutOfMemory,
 	};
 private:
 	typedef std::uint32_t objectid_t;
+	
+	struct PointerBackpatch{
+		std::uint32_t pointed_type;
+		std::uint32_t object_type;
+		objectid_t object_id;
+		PointerType pointer_type;
+		struct Setter{
+			typedef void (*callback_t)(void *dst, void *p);
+			void *dst;
+			callback_t callback;
+			void operator()(void *p) const{
+				this->callback(this->dst, p);
+			}
+		};
+		Setter setter;
+	};
+
 	std::istream *stream;
 	std::map<objectid_t, void *> node_map;
-	std::vector<std::pair<std::uint32_t, TypeHash> > read_typehashes();
+	std::map<objectid_t, std::uint32_t> object_types;
+	std::vector<std::pair<std::uint32_t, TypeHash>> read_typehashes();
 	enum class State{
 		Safe,
 		ReadingTypeHashes,
 		AllocatingMemory,
 		InitializingObjects,
 		SanityCheck,
+		SettingPointers,
 		Done,
 	};
 	State state;
-	typedef std::pair<void *, void(*)(void *)> smart_ptr_freer_pair_t;
-	std::map<uintptr_t, smart_ptr_freer_pair_t> known_shared_ptrs;
-	std::map<uintptr_t, smart_ptr_freer_pair_t> known_unique_ptrs;
+	std::vector<PointerBackpatch> pointers;
 
-	Serializable *deserialize(SerializableMetadata &, bool includes_typehashes = false);
-	template <typename T>
-	void deserialize_smart_ptr(T &t, std::map<uintptr_t, smart_ptr_freer_pair_t> &correct, std::map<uintptr_t, smart_ptr_freer_pair_t> &incorrect){
-		typename T::element_type *p;
-		this->deserialize(p);
-		auto it = incorrect.find((uintptr_t)p);
-		if (it != incorrect.end())
-			this->report_error(ErrorType::InconsistentSmartPointers);
-		it = correct.find((uintptr_t)p);
-		if (it != correct.end()){
-			t = *(T *)it->second.first;
-			return;
-		}
-		auto *sp = new T(p);
-		correct[(uintptr_t)p] = smart_ptr_freer_pair_t(sp, [](void *p){ delete (T *)p; });
-		t = *sp;
+	Serializable *perform_deserialization(SerializableMetadata &, bool includes_typehashes = false);
+	template <typename T, typename T2>
+	void deserialize_ptr(T &t, PointerType pointer_type){
+		objectid_t oid;
+		this->deserialize(oid);
+		PointerBackpatch pb;
+		pb.pointed_type = static_get_type_id<T2>::value;
+		pb.object_type = this->object_types[oid];
+		pb.object_id = oid;
+		pb.pointer_type = pointer_type;
+		pb.setter.dst = &t;
+		pb.setter.callback = [](void *dst, void *p){
+			*(T *)dst = std::move(*(T *)p);
+		};
+		this->pointers.push_back(pb);
 	}
+
 	template <typename SetT, typename ValueT>
 	typename std::enable_if<is_simply_constructible<ValueT>::value, void>::type deserialize_setlike(SetT &s){
 		s.clear();
@@ -141,6 +166,7 @@ private:
 		while (m.size() != (size_t)size)
 			m.emplace(std::pair<DS &, DS &>(*this, *this));
 	}
+	void *cast_pointer(void *src, std::uint32_t src_type, std::uint32_t dst_type);
 public:
 	DeserializerStream(std::istream &);
 	virtual ~DeserializerStream(){}
@@ -148,37 +174,30 @@ public:
 	template <typename Target>
 	Target *full_deserialization(bool includes_typehashes = false){
 		auto metadata = Target::static_get_metadata();
-		auto p = this->deserialize(*metadata, includes_typehashes);
+		auto p = this->perform_deserialization(*metadata, includes_typehashes);
 		auto ret = dynamic_cast<Target *>(p);
 		if (!ret)
 			delete p;
 		return ret;
 	}
-	void deserialize_id(void *&p){
-		objectid_t oid;
-		this->deserialize(oid);
-		if (!oid){
-			p = nullptr;
-			return;
-		}
-		auto it = this->node_map.find(oid);
-		if (it == this->node_map.end())
-			this->report_error(ErrorType::UnknownObjectId);
-		p = it->second;
-	}
+	void *deserialize_id(void *&p, std::uint32_t dst_type);
 	template <typename T>
-	void deserialize(T *&t){
+	void deserialize_immediately(T *&t){
 		void *temp;
-		this->deserialize_id(temp);
+		this->deserialize_id(temp, static_get_type_id<T>::value);
 		t = (T *)temp;
 	}
 	template <typename T>
+	void deserialize(T *&t){
+		this->deserialize_ptr<T *, T>(t, PointerType::RawPointer);
+	}
+	template <typename T>
 	void deserialize(std::shared_ptr<T> &t){
-		this->deserialize_smart_ptr(t, this->known_shared_ptrs, this->known_unique_ptrs);
+		this->deserialize_ptr<std::shared_ptr<T>, T>(t, PointerType::SharedPtr);
 	}
 	template <typename T>
 	void deserialize(std::unique_ptr<T> &t){
-		this->deserialize(t, this->known_unique_ptrs, this->known_shared_ptrs);
+		this->deserialize_ptr<std::unique_ptr<T>, T>(t, PointerType::UniquePtr);
 	}
 	template <typename T, size_t N>
 	void deserialize_array(T (&array)[N]){

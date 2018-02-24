@@ -22,7 +22,36 @@ void cpp_assert(const T1 &expr, const T2 &expected, const char *name){
 	throw std::runtime_error((std::string)"Assertion " + name + " failed");
 }
 
+class testA{
+public:
+	int a;
+	virtual ~testA(){}
+	void set_a(int a){
+		this->a = a;
+	}
+};
+
+class testB : public virtual testA{
+public:
+	virtual ~testB(){}
+};
+
+class testC : public virtual testA{
+public:
+	virtual ~testC(){}
+};
+
+class testD : public testB, public testC{
+public:
+	int b;
+	virtual ~testD(){}
+};
+
 int main(){
+	{
+		auto p = std::make_shared<testD>();
+		p->set_a(42);
+	}
 	try{
 		auto c = std::make_shared<C>();
 		auto g = std::make_shared<inheritance_graph>();
@@ -42,6 +71,7 @@ int main(){
 
 		c->data_a.clear();
 		c->data_b.front().clear();
+		c->set_data_c(3.141592);
 
 		cpp_assert(g->nodesA.front()->data_a, "", "ASSERT4");
 		cpp_assert(g->nodesB.front()->data_b.size(), 1, "ASSERT5");
@@ -52,6 +82,7 @@ int main(){
 			SerializerStream ss(stream);
 			ss.full_serialization(*g, true);
 		}
+		auto str = stream.str();
 		stream.clear();
 		stream.seekg(0);
 		std::shared_ptr<inheritance_graph> g2;

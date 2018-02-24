@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.25123.0
+VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LAS", "LAS\LAS.vcxproj", "{886936B8-F314-4A7A-915A-C1138AF46B83}"
 EndProject
@@ -16,6 +16,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "random_graph", "random_grap
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "inheritance", "inheritance\inheritance.vcxproj", "{1A55388D-E2ED-408F-ABF1-04A440BA14FA}"
+	ProjectSection(ProjectDependencies) = postProject
+		{886936B8-F314-4A7A-915A-C1138AF46B83} = {886936B8-F314-4A7A-915A-C1138AF46B83}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

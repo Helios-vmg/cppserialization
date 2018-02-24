@@ -597,10 +597,13 @@ class UserClass : public Type, public CppElement{
 	bool adding_headers;
 	static unsigned next_type_id;
 	bool abstract_type;
+	bool must_be_virtual = false;
+	std::uint32_t diamond_detection = 0;
 protected:
 	virtual void iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited) override;
 	virtual void iterate_only_public_internal(iterate_callback_t &callback, std::set<Type *> &visited, bool do_not_ignore) override;
 public:
+
 	UserClass(CppFile &file, const std::string &name, bool is_abstract = false):
 		CppElement(file),
 		adding_headers(false),
@@ -659,6 +662,9 @@ public:
 	bool is_serializable() const override{
 		return true;
 	}
+	void walk_class_hierarchy(const std::function<bool(UserClass &)> &callback);
+	void mark_virtual_base_classes();
+	bool is_subclass_of(const UserClass &other) const;
 };
 
 class CppFile{
@@ -689,6 +695,11 @@ public:
 	void generate_constructor(std::ostream &);
 	void generate_rollbacker(std::ostream &);
 	void generate_is_serializable(std::ostream &);
+	//void generate_cast_offsets(std::ostream &);
+	void generate_dynamic_cast(std::ostream &);
+	void generate_generic_pointer_classes(std::ostream &);
+	void generate_generic_pointer_class_implementations(std::ostream &);
+	void generate_pointer_allocator(std::ostream &);
 };
 
 class UserInclude : public CppElement, public ClassElement{

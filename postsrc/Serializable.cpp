@@ -1,6 +1,8 @@
 #include "Serializable.h"
 #include "DeserializerStream.h"
 
+std::atomic<Serializable::oid_t> Serializable::next_id;
+
 void *SerializableMetadata::allocate_memory(DeserializerStream &ds, std::uint32_t type){
 	type = this->map_type(type);
 	if (!type)
@@ -48,4 +50,25 @@ void SerializableMetadata::rollback_construction(std::uint32_t type, void *p){
 
 bool SerializableMetadata::type_is_serializable(std::uint32_t type){
 	return this->is_serializable(type);
+}
+
+//std::vector<std::tuple<std::uint32_t, std::uint32_t, int>> SerializableMetadata::get_cast_offsets(){
+//	return this->cast_offsets();
+//}
+
+Serializable *SerializableMetadata::perform_dynamic_cast(void *p, std::uint32_t type){
+	return this->dynamic_cast_p(p, type);
+}
+
+std::unique_ptr<GenericPointer> SerializableMetadata::allocate_pointer(std::uint32_t type, PointerType pointer_type, void *pointer){
+	return this->pointer_allocator(type, pointer_type, pointer);
+}
+
+std::pair<bool, uintptr_t> ObjectNode::get_identity() const{
+	uintptr_t id;
+	if (this->is_serializable)
+		id = (uintptr_t)((const Serializable *)this->address)->get_id();
+	else
+		id = (uintptr_t)this->address;
+	return std::make_pair(this->is_serializable, id);
 }
