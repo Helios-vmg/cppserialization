@@ -590,15 +590,25 @@ public:
 	}
 };
 
+class UserClass;
+
+struct InheritanceEdge{
+	std::shared_ptr<UserClass> Class;
+	bool Virtual = false;
+	InheritanceEdge(const std::shared_ptr<UserClass> &c): Class(c){}
+	InheritanceEdge(const InheritanceEdge &) = default;
+};
+
 class UserClass : public Type, public CppElement{
-	std::vector<std::shared_ptr<UserClass> > base_classes;
-	std::vector<std::shared_ptr<ClassElement> > elements;
+	std::vector<InheritanceEdge> base_classes;
+	std::vector<std::shared_ptr<ClassElement>> elements;
 	std::string name;
 	bool adding_headers;
 	static unsigned next_type_id;
 	bool abstract_type;
-	bool must_be_virtual = false;
+	bool inherit_Serializable_virtually = false;
 	std::uint32_t diamond_detection = 0;
+	std::vector<UserClass *> all_base_classes;
 protected:
 	virtual void iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited) override;
 	virtual void iterate_only_public_internal(iterate_callback_t &callback, std::set<Type *> &visited, bool do_not_ignore) override;
@@ -663,8 +673,10 @@ public:
 		return true;
 	}
 	void walk_class_hierarchy(const std::function<bool(UserClass &)> &callback);
-	void mark_virtual_base_classes();
+	void mark_virtual_inheritances(std::uint32_t);
+	void mark_virtual_inheritances(std::uint32_t, const std::vector<std::uint32_t> &);
 	bool is_subclass_of(const UserClass &other) const;
+	const std::vector<UserClass *> &get_all_base_classes();
 };
 
 class CppFile{
@@ -673,7 +685,6 @@ class CppFile{
 	std::unordered_map<std::string, std::shared_ptr<UserClass> > classes;
 	typedef std::map<unsigned, Type *> type_map_t;
 	type_map_t type_map;
-	void assign_type_ids();
 public:
 	CppFile(const std::string &name): name(name){}
 	void add_element(const std::shared_ptr<CppElement> &element){
@@ -700,6 +711,8 @@ public:
 	void generate_generic_pointer_classes(std::ostream &);
 	void generate_generic_pointer_class_implementations(std::ostream &);
 	void generate_pointer_allocator(std::ostream &);
+	std::uint32_t assign_type_ids();
+	void mark_virtual_inheritances();
 };
 
 class UserInclude : public CppElement, public ClassElement{

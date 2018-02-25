@@ -770,12 +770,7 @@ std::shared_ptr<CppFile> CppNonTerminal::evaluate_ast() const{
 		queue.pop_front();
 	}
 
-	for (auto &declaration : this->declarations){
-		auto uc = std::dynamic_pointer_cast<UserClass>(declaration);
-		if (!uc)
-			continue;
-		uc->mark_virtual_base_classes();
-	}
+	ret->mark_virtual_inheritances();
 
 	return ret;
 }

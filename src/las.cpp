@@ -193,7 +193,7 @@ void UserClass::add_headers(std::set<std::string> &set){
 		return;
 	autoset b(this->adding_headers);
 	for (auto &bc : this->base_classes)
-		bc->add_headers(set);
+		bc.Class->add_headers(set);
 	for (auto &e : this->elements){
 		auto member = std::dynamic_pointer_cast<ClassMember>(e);
 		if (!member)
@@ -212,12 +212,16 @@ void UserClass::generate_header(std::ostream &stream) const{
 			else
 				first = false;
 			stream << "public ";
-			if (base->must_be_virtual)
+			if (base.Virtual)
 				stream << "virtual ";
-			stream << base->name;
+			stream << base.Class->name;
 		}
-	}else
-		stream << "public virtual Serializable";
+	}else{
+		stream << "public ";
+		if (this->inherit_Serializable_virtually)
+			stream << "virtual ";
+		stream << "Serializable";
+	}
 	stream << "{\n";
 	for (auto &el : this->elements)
 		stream << "" << el << (el->needs_semicolon() ? ";\n" : "\n");
@@ -264,7 +268,7 @@ std::basic_string<T> replace_all(std::basic_string<T> s, const T2 &search, const
 
 void UserClass::generate_get_object_node2(std::ostream &stream) const{
 	for (auto &i : this->base_classes)
-		stream << i->get_name() << "::get_object_node(v);\n";
+		stream << i.Class->get_name() << "::get_object_node(v);\n";
 
 	auto callback = [&stream](const std::string &s, CallMode mode){
 		std::string addend;
@@ -294,7 +298,7 @@ void UserClass::generate_pointer_enumerator(generate_pointer_enumerator_callback
 
 void UserClass::generate_serialize(std::ostream &stream) const{
 	for (auto &b : this->base_classes)
-		stream << b->get_name() << "::serialize(ss);\n";
+		stream << b.Class->get_name() << "::serialize(ss);\n";
 	
 	for (auto &e : this->elements){
 		auto casted = std::dynamic_pointer_cast<ClassMember>(e);
@@ -321,7 +325,7 @@ void UserClass::generate_deserializer(std::ostream &stream) const{
 			stream << ": ";
 			first = false;
 		}
-		stream << b->get_name() << "(ds)\n";
+		stream << b.Class->get_name() << "(ds)\n";
 	}
 	
 	for (auto &e : this->elements){
@@ -415,7 +419,7 @@ void UserClass::generate_source(std::ostream &stream) const{
 
 void UserClass::iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited){
 	for (auto &b : this->base_classes)
-		b->iterate(callback, visited);
+		b.Class->iterate(callback, visited);
 	for (auto &e : this->elements){
 		auto casted = std::dynamic_pointer_cast<ClassMember>(e);
 		if (!casted)
@@ -427,7 +431,7 @@ void UserClass::iterate_internal(iterate_callback_t &callback, std::set<Type *> 
 
 void UserClass::iterate_only_public_internal(iterate_callback_t &callback, std::set<Type *> &visited, bool do_not_ignore){
 	for (auto &b : this->base_classes)
-		b->iterate_only_public(callback, visited, false);
+		b.Class->iterate_only_public(callback, visited, false);
 	for (auto &e : this->elements){
 		auto casted = std::dynamic_pointer_cast<ClassMember>(e);
 		if (!casted)
@@ -441,7 +445,7 @@ std::string UserClass::base_get_type_string() const{
 	std::stringstream stream;
 	stream << '{' << this->name;
 	for (auto &b : this->base_classes)
-		stream << ':' << b->base_get_type_string();
+		stream << ':' << b.Class->base_get_type_string();
 	stream << '(';
 	bool first = true;
 	for (auto &e : this->elements){
@@ -462,59 +466,114 @@ void UserClass::walk_class_hierarchy(const std::function<bool(UserClass &)> &cal
 	if (!callback(*this))
 		return;
 	for (auto &p : this->base_classes)
-		p->walk_class_hierarchy(callback);
+		p.Class->walk_class_hierarchy(callback);
 }
 
-void UserClass::mark_virtual_base_classes(){
-	this->walk_class_hierarchy([](UserClass &uc){
-		uc.diamond_detection = std::numeric_limits<std::uint32_t>::max();
-		return true;
-	});
-	this->walk_class_hierarchy([this](UserClass &uc){
-		auto id = this->get_type_id();
-		if (uc.diamond_detection == id){
-			uc.must_be_virtual = true;
-			return false;
+void UserClass::mark_virtual_inheritances(std::uint32_t serializable_type_id){
+	if (this->base_classes.size() < 2)
+		return;
+
+	std::vector<unsigned> counts;
+	for (auto &bc : this->base_classes){
+		auto &abs = bc.Class->get_all_base_classes();
+		for (auto c : abs){
+			auto id = !c ? serializable_type_id : c->get_type_id();
+			if (counts.size() <= id)
+				counts.resize(id + 1);
+			counts[id]++;
 		}
-		uc.diamond_detection = id;
-		return true;
-	});
+	}
+	std::vector<std::uint32_t> virtual_classes;
+	for (size_t i = 0; i < counts.size(); i++)
+		if (counts[i] > 1)
+			virtual_classes.push_back(i);
+	this->mark_virtual_inheritances(serializable_type_id, virtual_classes);
+}
+
+void UserClass::mark_virtual_inheritances(std::uint32_t serializable_type_id, const std::vector<std::uint32_t> &virtual_classes){
+	auto b = virtual_classes.begin();
+	auto e = virtual_classes.end();
+	if (!this->base_classes.size()){
+		auto it = std::lower_bound(b, e, serializable_type_id);
+		if (it == e || *it != serializable_type_id)
+			return;
+		this->inherit_Serializable_virtually = true;
+		return;
+	}
+
+	for (auto &bc : this->base_classes){
+		bc.Class->mark_virtual_inheritances(serializable_type_id, virtual_classes);
+		auto it = std::lower_bound(b, e, bc.Class->get_type_id());
+		if (it == e || *it != bc.Class->get_type_id())
+			continue;
+		bc.Virtual = true;
+	}
 }
 
 bool UserClass::is_subclass_of(const UserClass &other) const{
 	if (this->get_type_id() == other.get_type_id())
 		return true;
 	for (auto &c : this->base_classes)
-		if (c->is_subclass_of(other))
+		if (c.Class->is_subclass_of(other))
 			return true;
 	return false;
 }
 
-void CppFile::assign_type_ids(){
-	if (this->type_map.size())
-		return;
+bool less_than(UserClass *a, UserClass *b){
+	if (!b)
+		return false;
+	if (!a)
+		return true;
+	return a->get_type_id() < b->get_type_id();
+}
 
-	std::uint32_t id = 1;
-
-	std::map<TypeHash, std::pair<unsigned, Type *> > type_map;
-	auto callback = [&type_map, &id](Type &t, std::uint32_t &type_id){
-		auto &hash = t.get_type_hash();
-		auto it = type_map.find(hash);
-		if (it != type_map.end())
-			return;
-		type_id = id;
-		type_map[hash] = std::make_pair(id, &t);
-		id++;
-	};
-
-	for (auto &e : this->elements){
-		auto Class = std::dynamic_pointer_cast<UserClass>(e);
-		if (!Class)
-			continue;
-		Class->iterate_only_public(callback);
+const std::vector<UserClass *> &UserClass::get_all_base_classes(){
+	auto &tabs = this->all_base_classes;
+	if (!tabs.size()){
+		tabs.push_back(this);
+		if (!this->base_classes.size())
+			tabs.push_back(nullptr);
+		for (auto &bs : this->base_classes){
+			auto &abs = bs.Class->get_all_base_classes();
+			decltype(this->all_base_classes) temp(this->all_base_classes.size() + abs.size());
+			auto it = std::set_union(tabs.begin(), tabs.end(), abs.begin(), abs.end(), temp.begin(), less_than);
+			temp.resize(it - temp.begin());
+			tabs = std::move(temp);
+		}
 	}
-	for (auto &kv : type_map)
-		this->type_map[kv.second.first] = kv.second.second;
+	return this->all_base_classes;
+}
+
+std::uint32_t CppFile::assign_type_ids(){
+	std::uint32_t id = 1;
+	
+	if (!this->type_map.size()){
+		std::map<TypeHash, std::pair<unsigned, Type *>> type_map;
+		auto callback = [&type_map, &id](Type &t, std::uint32_t &type_id){
+			auto &hash = t.get_type_hash();
+			auto it = type_map.find(hash);
+			if (it != type_map.end())
+				return;
+			type_id = id;
+			type_map[hash] = std::make_pair(id, &t);
+			id++;
+		};
+
+		for (auto &e : this->elements){
+			auto Class = std::dynamic_pointer_cast<UserClass>(e);
+			if (!Class)
+				continue;
+			Class->iterate_only_public(callback);
+		}
+		for (auto &kv : type_map)
+			this->type_map[kv.second.first] = kv.second.second;
+	}else{
+		for (auto &kv : this->type_map)
+			id = std::max(id, kv.first);
+		id++;
+	}
+
+	return id;
 }
 
 std::string filename_to_macro(std::string ret){
@@ -1047,4 +1106,10 @@ void CppFile::generate_aux(){
 				"ret->add_type(p.first, p.second);\n"
 			"return ret;\n"
 		"}\n";
+}
+
+void CppFile::mark_virtual_inheritances(){
+	auto serializable_type_id = this->assign_type_ids();
+	for (auto &uc : this->classes)
+		uc.second->mark_virtual_inheritances(serializable_type_id);
 }
