@@ -182,12 +182,6 @@ public:
 	}
 	void *deserialize_id(void *&p, std::uint32_t dst_type);
 	template <typename T>
-	void deserialize_immediately(T *&t){
-		void *temp;
-		this->deserialize_id(temp, static_get_type_id<T>::value);
-		t = (T *)temp;
-	}
-	template <typename T>
 	void deserialize(T *&t){
 		this->deserialize_ptr<T *, T>(t, PointerType::RawPointer);
 	}
