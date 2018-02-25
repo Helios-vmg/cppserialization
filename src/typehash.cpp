@@ -6,7 +6,13 @@
 #include <iomanip>
 #endif
 
+TypeHash::TypeHash(){
+	this->valid = false;
+	memset(this->digest, 0, sizeof(this->digest));
+}
+
 TypeHash::TypeHash(const std::string &type_string){
+	this->valid = true;
 	SHA256_CTX ctx;
 	sha256_init(&ctx);
 	sha256_update(&ctx, (const BYTE *)type_string.c_str(), type_string.size());

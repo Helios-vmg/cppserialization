@@ -13,6 +13,8 @@
 #endif
 #include "typehash.h"
 
+#define SERIALIZER_VERSION 1
+
 extern std::mt19937_64 rng;
 class CppFile;
 
@@ -38,7 +40,7 @@ typedef const std::function<std::string (const std::string &, CallMode)> generat
 class Type{
 	std::uint32_t type_id;
 protected:
-	std::unique_ptr<TypeHash> type_hash;
+	TypeHash type_hash;
 	typedef const std::function<void(Type &, std::uint32_t &)> iterate_callback_t;
 	virtual void iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited){
 		callback(*this, this->type_id);
@@ -74,14 +76,17 @@ public:
 	}
 	virtual std::string get_type_string() const = 0;
 	virtual const TypeHash &get_type_hash(){
-		if (!this->type_hash)
-			this->type_hash.reset(new TypeHash(this->get_type_string()));
-		return *this->type_hash;
+		if (!this->type_hash){
+			std::stringstream stream;
+			stream << "version" << SERIALIZER_VERSION << this->get_type_string();
+			this->type_hash = TypeHash(stream.str());
+		}
+		return this->type_hash;
 	}
 	const TypeHash &get_type_hash() const{
 		if (!this->type_hash)
 			abort();
-		return *this->type_hash;
+		return this->type_hash;
 	}
 	void iterate(iterate_callback_t &callback){
 		std::set<Type *> visited;
@@ -643,9 +648,12 @@ public:
 		return this->name;
 	}
 	const TypeHash &get_type_hash() override{
-		if (!this->type_hash)
-			this->type_hash.reset(new TypeHash(this->base_get_type_string()));
-		return *this->type_hash;
+		if (!this->type_hash){
+			std::stringstream stream;
+			stream << "version" << SERIALIZER_VERSION << this->base_get_type_string();
+			this->type_hash = TypeHash(stream.str());
+		}
+		return this->type_hash;
 	}
 	std::string base_get_type_string() const;
 	void generate_get_type_hash(std::ostream &) const;

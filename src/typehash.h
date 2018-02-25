@@ -7,10 +7,14 @@
 #endif
 
 struct TypeHash{
+	bool valid;
 	unsigned char digest[32];
-	TypeHash(){}
+	TypeHash();
 	TypeHash(const std::string &type_string);
 	std::string to_string() const;
+	bool operator!() const{
+		return !this->valid;
+	}
 	int cmp(const TypeHash &b) const{
 		return memcmp(this->digest, b.digest, 32);
 	}
