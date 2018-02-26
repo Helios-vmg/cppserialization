@@ -78,6 +78,12 @@ public:
 	virtual std::unique_ptr<GenericPointer> cast(std::uint32_t type) = 0;
 };
 
+enum class CastCategory : char{
+	Trivial = 0,
+	Complex = 1,
+	Invalid = 2,
+};
+
 class SerializableMetadata{
 public:
 	typedef void *(*allocator_t)(std::uint32_t);
@@ -87,8 +93,9 @@ public:
 	//typedef std::vector<std::tuple<std::uint32_t, std::uint32_t, int>> (*cast_offsets_t)();
 	typedef Serializable *(*dynamic_cast_f)(void *, std::uint32_t);
 	typedef std::unique_ptr<GenericPointer> (*allocate_pointer_t)(std::uint32_t, PointerType, void *);
+	typedef CastCategory (*categorize_cast_t)(std::uint32_t, std::uint32_t);
 private:
-	std::vector<std::pair<std::uint32_t, TypeHash> > known_types;
+	std::vector<std::pair<std::uint32_t, TypeHash>> known_types;
 	//Used for deserialization.
 	std::unique_ptr<std::map<std::uint32_t, std::uint32_t>> typemap;
 	allocator_t allocator;
@@ -97,6 +104,7 @@ private:
 	is_serializable_t is_serializable;
 	allocate_pointer_t pointer_allocator;
 	dynamic_cast_f dynamic_cast_p;
+	categorize_cast_t categorizer;
 
 	std::uint32_t map_type(std::uint32_t);
 	std::uint32_t known_type_from_hash(const TypeHash &);
@@ -112,13 +120,15 @@ public:
 			const rollbacker_t &rollbacker,
 			const is_serializable_t &is_serializable,
 			const dynamic_cast_f &dynamic_cast_p,
-			const allocate_pointer_t &pointer_allocator){
+			const allocate_pointer_t &pointer_allocator,
+			categorize_cast_t categorizer){
 		this->allocator = allocator;
 		this->constructor = constructor;
 		this->rollbacker = rollbacker;
 		this->is_serializable = is_serializable;
 		this->dynamic_cast_p = dynamic_cast_p;
 		this->pointer_allocator = pointer_allocator;
+		this->categorizer = categorizer;
 	}
 	void *allocate_memory(DeserializerStream &ds, std::uint32_t);
 	void construct_memory(std::uint32_t, void *, DeserializerStream &);
@@ -127,6 +137,8 @@ public:
 	//std::vector<std::tuple<std::uint32_t, std::uint32_t, int>> get_cast_offsets();
 	Serializable *perform_dynamic_cast(void *p, std::uint32_t type);
 	std::unique_ptr<GenericPointer> allocate_pointer(std::uint32_t type, PointerType pointer_type, void *pointer);
+	CastCategory categorize_cast(std::uint32_t object_type, std::uint32_t dst_type);
+	void *trivial_cast(std::uint32_t dst_type, void *object, std::uint32_t object_type);
 };
 
 #endif

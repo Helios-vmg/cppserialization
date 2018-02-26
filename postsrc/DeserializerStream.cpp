@@ -43,6 +43,7 @@ It find_first_true(It begin, It end, const F &f){
 }
 
 Serializable *DeserializerStream::perform_deserialization(SerializableMetadata &metadata, bool includes_typehashes){
+	this->metadata = &metadata;
 	auto &object_types = this->object_types;
 	object_types.clear();
 	std::vector<std::pair<std::uint32_t, void *> > initialized;
@@ -161,23 +162,21 @@ Serializable *DeserializerStream::perform_deserialization(SerializableMetadata &
 		std::clog << "Setting pointers...\n";
 #endif
 		{
-			typedef std::pair<objectid_t, PointerType> K;
-			typedef std::unique_ptr<GenericPointer> V;
-			std::map<K, V> map;
 			try{
 				for (auto &p : this->pointers){
 					K key(p.object_id, p.pointer_type);
-					if (map.find(key) != map.end())
+					if (this->base_pointers.find(key) != this->base_pointers.end())
 						continue;
-					map[key] = metadata.allocate_pointer(p.object_type, p.pointer_type, this->node_map[p.object_id]);
+					this->base_pointers[key] = metadata.allocate_pointer(p.object_type, p.pointer_type, this->node_map[p.object_id]);
 				}
 				for (auto &p : this->pointers){
 					K key(p.object_id, p.pointer_type);
-					auto temp = map[key]->cast(p.pointed_type);
+					auto temp = this->base_pointers[key]->cast(p.pointed_type);
 					p.setter(temp->pointer);
 				}
+				this->base_pointers.clear();
 			}catch (std::bad_alloc &){
-				for (auto &kv : map)
+				for (auto &kv : this->base_pointers)
 					kv.second->release();
 				this->report_error(ErrorType::OutOfMemory);
 			}
@@ -212,43 +211,15 @@ Serializable *DeserializerStream::perform_deserialization(SerializableMetadata &
 	return (Serializable *)main_object;
 }
 
-void *DeserializerStream::deserialize_id(void *&p, std::uint32_t dst_type){
-	objectid_t oid;
-	this->deserialize(oid);
-	if (!oid){
-		p = nullptr;
-		return nullptr;
-	}
-	auto it = this->node_map.find(oid);
-	if (it == this->node_map.end())
-		this->report_error(ErrorType::UnknownObjectId);
-	auto it2 = this->object_types.find(oid);
-	if (it2 == this->object_types.end())
-		this->report_error(ErrorType::UnknownObjectId);
-	auto ret = p = it->second;
-	//if (dst_type && dst_type != it2->second)
-	//	p = this->cast_pointer(p, it2->second, dst_type);
-	return ret;
+int DeserializerStream::categorize_cast(std::uint32_t object_type, std::uint32_t dst_type){
+	return (int)this->metadata->categorize_cast(object_type, dst_type);
 }
 
-void *DeserializerStream::cast_pointer(void *src, std::uint32_t src_type, std::uint32_t dst_type){
-	return nullptr;
-	/*
-	auto b = this->cast_offsets.begin();
-	auto e = this->cast_offsets.end();
-	auto it = find_first_true(
-		b,
-		e,
-		[src_type, dst_type](const std::tuple<std::uint32_t, std::uint32_t, int> &x){
-			if (std::get<0>(x) < src_type)
-				return false;
-			if (std::get<0>(x) > src_type)
-				return true;
-			return std::get<1>(x) >= dst_type;
-		}
-	);
-	if (it == e || std::get<0>(*it) != src_type || std::get<1>(*it) != dst_type)
-		this->report_error(ErrorType::InvalidCast);
-	return (char *)src + std::get<2>(*it);
-	*/
+std::unique_ptr<GenericPointer> DeserializerStream::allocate_pointer(std::uint32_t object_type, PointerType pointer_type, objectid_t object){
+	return this->metadata->allocate_pointer(object_type, pointer_type, this->node_map[object]);
+}
+
+void DeserializerStream::set_pointer(void *dst, PointerBackpatch::Setter::callback_t callback, GenericPointer &gp, std::uint32_t pointed_type){
+	auto temp = gp.cast(pointed_type);
+	callback(dst, temp->pointer);
 }

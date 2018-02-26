@@ -23,6 +23,13 @@ enum class PointerType{
 	SharedPtr,
 };
 
+class GenericPointer;
+
+template <typename T>
+void set_pointer(void *dst, void *p){
+	*(T *)dst = std::move(*(T *)p);
+};
+
 class DeserializerStream{
 public:
 	enum class ErrorType{
@@ -70,21 +77,52 @@ private:
 	};
 	State state;
 	std::vector<PointerBackpatch> pointers;
+	SerializableMetadata *metadata;
+	typedef std::pair<objectid_t, PointerType> K;
+	typedef std::unique_ptr<GenericPointer> V;
+	std::map<K, V> base_pointers;
 
 	Serializable *perform_deserialization(SerializableMetadata &, bool includes_typehashes = false);
+	int categorize_cast(std::uint32_t object_type, std::uint32_t dst_type);
+	std::unique_ptr<GenericPointer> allocate_pointer(std::uint32_t object_type, PointerType pointer_type, objectid_t object);
+	void set_pointer(void *pointer, PointerBackpatch::Setter::callback_t callback, GenericPointer &gp, std::uint32_t pointed_type);
 	template <typename T, typename T2>
 	void deserialize_ptr(T &t, PointerType pointer_type){
 		objectid_t oid;
 		this->deserialize(oid);
+		if (!oid){
+			t = nullptr;
+			return;
+		}
+		auto object_type = this->object_types[oid];
+		auto dst_type = static_get_type_id<T2>::value;
+		switch (dst_type == object_type ? 0 : this->categorize_cast(object_type, dst_type)){
+			case 0:
+				{
+					K key(oid, pointer_type);
+					GenericPointer *gp;
+					auto found = this->base_pointers.find(key);
+					if (found == this->base_pointers.end()){
+						auto temp = this->allocate_pointer(object_type, pointer_type, oid);
+						gp = temp.get();
+						this->base_pointers[key] = std::move(temp);
+					}else
+						gp = found->second.get();
+					this->set_pointer(&t, &::set_pointer<T>, *gp, dst_type);
+				}
+				return;
+			case 1:
+				break;
+			default:
+				this->report_error(ErrorType::InvalidCast);
+		}
 		PointerBackpatch pb;
-		pb.pointed_type = static_get_type_id<T2>::value;
-		pb.object_type = this->object_types[oid];
+		pb.pointed_type = dst_type;
+		pb.object_type = object_type;
 		pb.object_id = oid;
 		pb.pointer_type = pointer_type;
 		pb.setter.dst = &t;
-		pb.setter.callback = [](void *dst, void *p){
-			*(T *)dst = std::move(*(T *)p);
-		};
+		pb.setter.callback = &::set_pointer<T>;
 		this->pointers.push_back(pb);
 	}
 
@@ -166,7 +204,6 @@ private:
 		while (m.size() != (size_t)size)
 			m.emplace(std::pair<DS &, DS &>(*this, *this));
 	}
-	void *cast_pointer(void *src, std::uint32_t src_type, std::uint32_t dst_type);
 public:
 	DeserializerStream(std::istream &);
 	virtual ~DeserializerStream(){}
@@ -180,7 +217,6 @@ public:
 			delete p;
 		return ret;
 	}
-	void *deserialize_id(void *&p, std::uint32_t dst_type);
 	template <typename T>
 	void deserialize(T *&t){
 		this->deserialize_ptr<T *, T>(t, PointerType::RawPointer);

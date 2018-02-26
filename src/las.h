@@ -614,6 +614,7 @@ class UserClass : public Type, public CppElement{
 	bool inherit_Serializable_virtually = false;
 	std::uint32_t diamond_detection = 0;
 	std::vector<UserClass *> all_base_classes;
+	int trivial_class = -1;
 protected:
 	virtual void iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited) override;
 	virtual void iterate_only_public_internal(iterate_callback_t &callback, std::set<Type *> &visited, bool do_not_ignore) override;
@@ -685,6 +686,7 @@ public:
 	void mark_virtual_inheritances(std::uint32_t, const std::vector<std::uint32_t> &);
 	bool is_subclass_of(const UserClass &other) const;
 	const std::vector<UserClass *> &get_all_base_classes();
+	bool is_trivial_class();
 };
 
 class CppFile{
@@ -719,6 +721,7 @@ public:
 	void generate_generic_pointer_classes(std::ostream &);
 	void generate_generic_pointer_class_implementations(std::ostream &);
 	void generate_pointer_allocator(std::ostream &);
+	void generate_cast_categorizer(std::ostream &);
 	std::uint32_t assign_type_ids();
 	void mark_virtual_inheritances();
 };

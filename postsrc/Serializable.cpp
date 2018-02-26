@@ -64,6 +64,10 @@ std::unique_ptr<GenericPointer> SerializableMetadata::allocate_pointer(std::uint
 	return this->pointer_allocator(type, pointer_type, pointer);
 }
 
+CastCategory SerializableMetadata::categorize_cast(std::uint32_t object_type, std::uint32_t dst_type){
+	return this->categorizer(object_type, dst_type);
+}
+
 std::pair<bool, uintptr_t> ObjectNode::get_identity() const{
 	uintptr_t id;
 	if (this->is_serializable)

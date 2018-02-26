@@ -39,6 +39,7 @@ DEFINE_get_X_function_name(rollbacker)
 DEFINE_get_X_function_name(is_serializable)
 DEFINE_get_X_function_name(dynamic_cast)
 DEFINE_get_X_function_name(allocate_pointer)
+DEFINE_get_X_function_name(categorize_cast)
 
 std::string IntegerType::get_type_string() const{
 	std::stringstream stream;
@@ -544,6 +545,18 @@ const std::vector<UserClass *> &UserClass::get_all_base_classes(){
 	return this->all_base_classes;
 }
 
+bool UserClass::is_trivial_class(){
+	if (this->trivial_class < 0){
+		if (!this->base_classes.size())
+			this->trivial_class = 1;
+		else if (this->base_classes.size() > 1 || this->base_classes.front().Virtual)
+			this->trivial_class = 0;
+		else
+			this->trivial_class = this->base_classes.front().Class->is_trivial_class();
+	}
+	return !!this->trivial_class;
+}
+
 std::uint32_t CppFile::assign_type_ids(){
 	std::uint32_t id = 1;
 	
@@ -1040,6 +1053,53 @@ void CppFile::generate_pointer_allocator(std::ostream &stream){
 		;
 }
 
+void CppFile::generate_cast_categorizer(std::ostream &stream){
+	unsigned max_type = 0;
+	for (auto &kv : this->type_map)
+		max_type = std::max(max_type, kv.first);
+
+	stream <<
+		"CastCategory " << get_categorize_cast_function_name() << "(std::uint32_t src_type, std::uint32_t dst_type){\n"
+		"    if (src_type < 1 || dst_type < 1 || src_type > " << max_type << " || dst_type > " << max_type << ")\n"
+		"        return CastCategory::Invalid;\n"
+		"    if (src_type == dst_type)\n"
+		"        return CastCategory::Trivial;\n"
+		"    static const CastCategory categories[] = {\n"
+		;
+	for (unsigned src = 1; src <= max_type; src++){
+		for (unsigned dst = 1; dst <= max_type; dst++){
+			if (src == dst){
+				stream << "        CastCategory::Trivial,\n";
+				continue;
+			}
+			auto src_t = this->type_map[src];
+			auto dst_t = this->type_map[dst];
+			if (!src_t->is_serializable() || !dst_t->is_serializable()){
+				stream << "        CastCategory::Invalid,\n";
+				continue;
+			}
+			auto src_class = static_cast<UserClass *>(src_t);
+			auto dst_class = static_cast<UserClass *>(dst_t);
+			if (!src_class->is_subclass_of(*dst_class)){
+				stream << "        CastCategory::Invalid,\n";
+				continue;
+			}
+			if (src_class->is_trivial_class()){
+				stream << "        CastCategory::Trivial,\n";
+				continue;
+			}
+			stream << "        CastCategory::Complex,\n";
+		}
+	}
+	stream <<
+		"    };\n"
+		"    src_type--;\n"
+		"    dst_type--;\n"
+		"    return categories[dst_type + src_type * " << max_type << "];\n"
+		"}\n"
+		;
+}
+
 void CppFile::generate_aux(){
 	this->assign_type_ids();
 
@@ -1081,8 +1141,6 @@ void CppFile::generate_aux(){
 	file << "\n";
 	this->generate_is_serializable(file);
 	file << "\n";
-	//this->generate_cast_offsets(file);
-	//file << "\n";
 	this->generate_dynamic_cast(file);
 	file << "\n";
 	this->generate_generic_pointer_classes(file);
@@ -1090,6 +1148,8 @@ void CppFile::generate_aux(){
 	this->generate_generic_pointer_class_implementations(file);
 	file << "\n";
 	this->generate_pointer_allocator(file);
+	file << "\n";
+	this->generate_cast_categorizer(file);
 	file <<
 		"\n"
 		<< generate_get_metadata_signature() << "{\n"
@@ -1100,7 +1160,8 @@ void CppFile::generate_aux(){
 				<< get_rollbacker_function_name() << ", "
 				<< get_is_serializable_function_name() << ", "
 				<< get_dynamic_cast_function_name() << ", "
-				<< get_allocate_pointer_function_name()
+				<< get_allocate_pointer_function_name() << ", "
+				<< get_categorize_cast_function_name()
 			<<");\n"
 			"for (auto &p : " << array_name << ")\n"
 				"ret->add_type(p.first, p.second);\n"
