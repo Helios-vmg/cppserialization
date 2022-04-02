@@ -34,3 +34,4 @@ _ReSharper*/
 bin64/*
 *.opendb
 *.db
+.vs/
