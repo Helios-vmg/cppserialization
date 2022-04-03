@@ -17,12 +17,12 @@ int main(){
 
 		std::ofstream file("test.bin", std::ios::binary);
 		SerializerStream ss(file);
-		ss.serialize(a[0], true);
+		ss.full_serialization(a[0], true);
 	}
 	try{
 		std::ifstream file("test.bin", std::ios::binary);
 		ExampleDeserializerStream ds(file);
-		std::unique_ptr<test_type> tt(ds.deserialize<test_type>(true));
+		std::unique_ptr<test_type> tt(ds.full_deserialization<test_type>(true));
 	}catch (std::exception &e){
 		std::cerr << e.what() << std::endl;
 	}

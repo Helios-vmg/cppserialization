@@ -11,6 +11,10 @@
 #include <unordered_map>
 #include <cstdint>
 #include <array>
+#if __cplusplus >= 201703
+#define SERIALIZATION_HAVE_STD_OPTIONAL
+#include <optional>
+#endif
 #include "serialization_utils.h"
 
 class Serializable;
@@ -342,6 +346,21 @@ public:
 	typename std::enable_if<is_maplike<T>::value, void>::type deserialize(T &s){
 		this->deserialize_maplike<T, typename T::key_type, typename T::mapped_type>(s);
 	}
+#ifdef SERIALIZATION_HAVE_STD_OPTIONAL
+	template <typename T>
+	void deserialize(std::optional<T> &o){
+		bool set;
+		this->deserialize(set);
+		if (!set){
+			o = {};
+			return;
+		}
+		static_assert(std::is_move_constructible<T>::value, "Can't move T");
+		T temp;
+		this->deserialize(temp);
+		o = std::move(temp);
+	}
+#endif
 };
 
 #endif

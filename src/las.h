@@ -37,6 +37,15 @@ enum class CallMode{
 };
 typedef const std::function<std::string (const std::string &, CallMode)> generate_pointer_enumerator_callback_t;
 
+enum class CppVersion{
+	Undefined = 0,
+	Cpp1998 = 199711,
+	Cpp2011 = 201103,
+	Cpp2014 = 201402,
+	Cpp2017 = 201703,
+	Cpp2020 = 202002,
+};
+
 class Type{
 	std::uint32_t type_id;
 protected:
@@ -118,6 +127,9 @@ public:
 	}
 	virtual bool is_serializable() const{
 		return false;
+	}
+	virtual CppVersion minimum_cpp_version() const{
+		return CppVersion::Cpp2011;
 	}
 };
 
@@ -427,6 +439,23 @@ public:
 	}
 };
 
+class OptionalType : public NestedType{
+public:
+	OptionalType(const std::shared_ptr<Type> &inner): NestedType(inner){}
+	std::ostream &output(std::ostream &stream) const override{
+		return stream << "std::optional<" << this->inner << ">";
+	}
+	const char *header() const override{
+		return "<optional>";
+	}
+	std::string get_type_string() const override{
+		return "optional<" + this->inner->get_type_string() + ">";
+	}
+	CppVersion minimum_cpp_version() const override{
+		return CppVersion::Cpp2017;
+	}
+};
+
 class PairType : public Type{
 protected:
 	std::shared_ptr<Type> first,
@@ -564,6 +593,9 @@ public:
 	virtual bool needs_semicolon() const{
 		return true;
 	}
+	virtual CppVersion minimum_cpp_version() const{
+		return CppVersion::Undefined;
+	}
 };
 
 #if 1
@@ -592,6 +624,9 @@ public:
 	}
 	Accessibility get_accessibility() const{
 		return this->accessibility;
+	}
+	CppVersion minimum_cpp_version() const override{
+		return this->get_type()->minimum_cpp_version();
 	}
 };
 
@@ -687,6 +722,7 @@ public:
 	bool is_subclass_of(const UserClass &other) const;
 	const std::vector<UserClass *> &get_all_base_classes();
 	bool is_trivial_class();
+	CppVersion minimum_cpp_version() const override;
 };
 
 class CppFile{
@@ -724,6 +760,7 @@ public:
 	void generate_cast_categorizer(std::ostream &);
 	std::uint32_t assign_type_ids();
 	void mark_virtual_inheritances();
+	CppVersion minimum_cpp_version() const;
 };
 
 class UserInclude : public CppElement, public ClassElement{

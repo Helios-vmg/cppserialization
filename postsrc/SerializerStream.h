@@ -14,6 +14,10 @@
 #include <stack>
 #include <climits>
 #include <array>
+#if __cplusplus >= 201703
+#define SERIALIZATION_HAVE_STD_OPTIONAL
+#include <optional>
+#endif
 #include "serialization_utils.h"
 #include "noexcept.h"
 
@@ -224,6 +228,17 @@ public:
 	typename std::enable_if<std::is_base_of<Serializable, T>::value, void>::type serialize(const T &serializable){
 		serializable.serialize(*this);
 	}
+#ifdef SERIALIZATION_HAVE_STD_OPTIONAL
+	template <typename T>
+	void serialize(std::optional<T> &o){
+		if (!o){
+			this->serialize(false);
+			return;
+		}
+		this->serialize(true);
+		this->serialize(*o);
+	}
+#endif
 };
 
 #endif

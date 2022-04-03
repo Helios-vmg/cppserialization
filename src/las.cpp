@@ -557,6 +557,21 @@ bool UserClass::is_trivial_class(){
 	return !!this->trivial_class;
 }
 
+CppVersion UserClass::minimum_cpp_version() const{
+	auto ret = CppVersion::Cpp1998;
+	for (auto &base : this->base_classes){
+		auto v = base.Class->minimum_cpp_version();
+		if ((long)v > (long)ret)
+			ret = v;
+	}
+	for (auto &element : this->elements){
+		auto v = element->minimum_cpp_version();
+		if ((long)v > (long)ret)
+			ret = v;
+	}
+	return ret;
+}
+
 std::uint32_t CppFile::assign_type_ids(){
 	std::uint32_t id = 1;
 	
@@ -598,6 +613,50 @@ std::string filename_to_macro(std::string ret){
 	return ret;
 }
 
+CppVersion CppFile::minimum_cpp_version() const{
+	CppVersion ret = CppVersion::Cpp1998;
+	for (auto &c : this->classes){
+		auto v = c.second->minimum_cpp_version();
+		if ((long)v > (long)ret)
+			ret = v;
+	}
+	return ret;
+}
+
+const char *to_string(CppVersion version){
+	switch (version){
+		case CppVersion::Undefined:
+			return "C++??";
+		case CppVersion::Cpp1998:
+			return "C++98";
+		case CppVersion::Cpp2011:
+			return "C++11";
+		case CppVersion::Cpp2014:
+			return "C++14";
+		case CppVersion::Cpp2017:
+			return "C++17";
+		case CppVersion::Cpp2020:
+			return "C++20";
+		default:
+			throw GenericException("Invalid switch for CppVersion");
+	}
+}
+
+void require_cpp(std::ostream &s, CppVersion version){
+	s <<
+		"#ifndef __cplusplus\n"
+		"#error No C++?\n"
+		"#endif\n"
+		"\n";
+	if (version == CppVersion::Undefined)
+		return;
+	s <<
+		"#if __cplusplus < " << (int)version << "\n"
+		"#error " << to_string(version) << " or newer is required to compile this.\n"
+		"#endif\n"
+		"\n";
+}
+
 void CppFile::generate_header(){
 	this->assign_type_ids();
 
@@ -607,13 +666,10 @@ void CppFile::generate_header(){
 	std::ofstream file(filename.c_str());
 
 	file <<
-		"#ifdef _MSC_VER\n"
 		"#pragma once\n"
-		"#endif\n"
 		"\n"
-		"#ifndef " << macro << "\n"
-		"#define " << macro << "\n"
-		"\n";
+		;
+	require_cpp(file, this->minimum_cpp_version());
 
 	std::set<std::string> includes;
 	for (auto &c : this->classes)
@@ -649,7 +705,7 @@ void CppFile::generate_header(){
 		file << std::endl;
 	}
 
-	file << "\n#endif\n";
+	file << "\n";
 }
 
 std::string generate_get_metadata_signature(){

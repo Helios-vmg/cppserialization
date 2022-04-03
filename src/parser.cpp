@@ -44,6 +44,7 @@ const char * const keywords[] = {
 	"string",
 	"wstring",
 	"abstract",
+	"optional",
 	nullptr
 };
 
@@ -102,6 +103,7 @@ enum class FixedTokenType{
 	String        = first_name_token + 27,
 	WString       = first_name_token + 28,
 	Abstract      = first_name_token + 29,
+	Optional      = first_name_token + 30,
 };
 
 enum class AccessType{
@@ -550,6 +552,7 @@ bool is_typename_token(FixedTokenType type){
 		case FixedTokenType::UnorderedMap:
 		case FixedTokenType::String:
 		case FixedTokenType::WString:
+		case FixedTokenType::Optional:
 			return true;
 	}
 	return false;
@@ -701,6 +704,7 @@ std::shared_ptr<TypeSpecificationNonTerminal> TypeSpecificationNonTerminal::crea
 		case FixedTokenType::List:
 		case FixedTokenType::Set:
 		case FixedTokenType::UnorderedSet:
+		case FixedTokenType::Optional:
 			return std::make_shared<UnaryTypeSpecificationNonTerminal>(input);
 		case FixedTokenType::Map:
 		case FixedTokenType::UnorderedMap:
@@ -878,6 +882,8 @@ std::shared_ptr<Type> UnaryTypeSpecificationNonTerminal::create_type() const{
 			return std::make_shared<SetType>(this->inner_type->create_type());
 		case FixedTokenType::UnorderedSet:
 			return std::make_shared<HashSetType>(this->inner_type->create_type());
+		case FixedTokenType::Optional:
+			return std::make_shared<OptionalType>(this->inner_type->create_type());
 		default:
 			throw GenericException("Internal error: program in unknown state!");
 	}
