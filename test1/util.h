@@ -27,7 +27,7 @@ std::enable_if_t<std::is_base_of_v<Serializable, T>, std::unique_ptr<T>>
 deserialize(const std::string &src){
 	std::stringstream temp(src);
 	ExampleDeserializerStream eds(temp);
-	return std::unique_ptr<T>{eds.full_deserialization<T>(true)};
+	return eds.full_deserialization<T>(true);
 }
 
 template <typename T>

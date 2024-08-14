@@ -48,6 +48,7 @@ const char *const keywords[] = {
 	"global_include",
 	"custom_dtor",
 	"namespace",
+	"enum",
 	nullptr,
 };
 
@@ -212,9 +213,14 @@ std::deque<std::shared_ptr<Token>> tokenize(std::deque<char> &input){
 			ret.push_back(std::make_shared<StringLiteralToken>(string));
 			continue;
 		}
-		if (isdigit(c)){
-			unsigned integer = 0;
-			while (input.size()){
+		if (c == '-' || isdigit(c)){
+			bool flip_sign = false;
+			if (c == '-'){
+				flip_sign = true;
+				input.pop_front();
+			}
+			EasySignedBigNum integer;
+			while (!input.empty()){
 				auto c = input.front();
 				if (!isdigit(c))
 					break;
@@ -222,7 +228,9 @@ std::deque<std::shared_ptr<Token>> tokenize(std::deque<char> &input){
 				integer += c - '0';
 				input.pop_front();
 			}
-			ret.push_back(std::make_shared<IntegerToken>(integer));
+			if (flip_sign)
+				integer = -integer;
+			ret.push_back(std::make_shared<IntegerToken>(std::move(integer)));
 			continue;
 		}
 		throw std::exception();

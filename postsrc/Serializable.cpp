@@ -68,6 +68,10 @@ CastCategory SerializableMetadata::categorize_cast(std::uint32_t object_type, st
 	return this->categorizer(object_type, dst_type);
 }
 
+bool SerializableMetadata::check_enum_value(std::uint32_t type, const void *value){
+	return this->enum_checker(type, value);
+}
+
 std::pair<bool, uintptr_t> ObjectNode::get_identity() const{
 	uintptr_t id;
 	if (this->is_serializable)

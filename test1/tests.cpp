@@ -12,6 +12,7 @@ void run_tests(){
 		test3,
 		test4,
 		test5,
+		test6,
 	};
 	size_t test_no = 0;
 	std::uint32_t seed = dev();

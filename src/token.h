@@ -1,5 +1,6 @@
 #pragma once
 
+#include "EasyBigNum.h"
 #include <string>
 #include <memory>
 #include <queue>
@@ -68,6 +69,7 @@ enum class FixedTokenType{
 	GlobalInclude = first_name_token + 34,
 	CustomDtor    = first_name_token + 35,
 	Namespace     = first_name_token + 36,
+	Enum          = first_name_token + 37,
 };
 
 enum class AccessType{
@@ -111,10 +113,10 @@ public:
 };
 
 class IntegerToken : public Token {
-	unsigned value;
+	EasySignedBigNum value;
 public:
-	IntegerToken(unsigned value): value(value){}
-	unsigned get_value() const{
+	IntegerToken(EasySignedBigNum value): value(std::move(value)){}
+	auto &get_value() const{
 		return this->value;
 	}
 	TokenType token_type() const override{

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "typehash.h"
+#include "EasyBigNum.h"
+#include "variable_formatter.h"
 #include <iostream>
 #include <sstream>
 #include <memory>
@@ -12,8 +14,6 @@
 #include <functional>
 #include <cstdint>
 #include <random>
-
-#include "variable_formatter.h"
 
 #define SERIALIZER_VERSION 1
 
@@ -89,7 +89,7 @@ public:
 	virtual const char *header() const{
 		return nullptr;
 	}
-	virtual void add_headers(std::set<std::string> &set) const{
+	virtual void add_headers(std::set<std::string> &set){
 		auto header = this->header();
 		if (header)
 			set.insert((std::string)header);
@@ -162,6 +162,12 @@ public:
 	}
 	virtual std::string fully_qualified_name() const{
 		return this->output();
+	}
+	virtual bool check_value(const EasySignedBigNum &value){
+		return false;
+	}
+	virtual std::shared_ptr<Type> get_underlying_type() const{
+		return {};
 	}
 };
 
@@ -247,6 +253,7 @@ public:
 		return "<cstdint>";
 	}
 	std::string get_type_string() const override;
+	bool check_value(const EasySignedBigNum &value) override;
 };
 
 enum class FloatingPointPrecision{
@@ -338,7 +345,7 @@ protected:
 public:
 	NestedType(const std::shared_ptr<Type> &inner): inner(inner){}
 	virtual ~NestedType(){}
-	virtual void add_headers(std::set<std::string> &set) const override{
+	virtual void add_headers(std::set<std::string> &set) override{
 		auto header = this->header();
 		if (header)
 			set.insert((std::string)header);
@@ -347,9 +354,9 @@ public:
 };
 
 class ArrayType : public NestedType{
-	size_t length;
+	EasyBigNum length;
 public:
-	ArrayType(const std::shared_ptr<Type> &inner, size_t n): NestedType(inner), length(n){}
+	ArrayType(const std::shared_ptr<Type> &inner, const EasySignedBigNum &n);
 	std::ostream &output(std::ostream &stream) const override{
 		return stream << "std::array< " << this->inner << ", " << this->length << ">";
 	}
@@ -562,7 +569,7 @@ public:
 	virtual std::ostream &output(std::ostream &stream) const{
 		return this->type->output(stream, this->name);
 	}
-	virtual void add_headers(std::set<std::string> &set) const{
+	virtual void add_headers(std::set<std::string> &set){
 		this->type->add_headers(set);
 	}
 	std::shared_ptr<const Type> get_type() const{
@@ -684,11 +691,29 @@ struct InheritanceEdge{
 	InheritanceEdge(const InheritanceEdge &) = default;
 };
 
-class UserClass : public Type, public CppElement{
+class UserType : public Type, public CppElement{
+protected:
+	std::string name;
 	std::vector<std::string> _namespace;
+
+	std::string generate_namespace(bool last_colons = true) const;
+public:
+	UserType(CppFile &file, std::string name, std::vector<std::string> _namespace);
+	virtual ~UserType(){}
+	std::string get_type_string() const override{
+		return this->name;
+	}
+	std::ostream &output(std::ostream &stream) const override{
+		return stream << this->generate_namespace() << this->name;
+	}
+	const std::string &get_name() const{
+		return this->name;
+	}
+};
+
+class UserClass : public UserType{
 	std::vector<InheritanceEdge> base_classes;
 	std::vector<std::shared_ptr<ClassElement>> elements;
-	std::string name;
 	bool adding_headers;
 	static unsigned next_type_id;
 	bool abstract_type;
@@ -701,40 +726,28 @@ protected:
 	virtual void iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited) override;
 	virtual void iterate_only_public_internal(iterate_callback_t &callback, std::set<Type *> &visited, bool do_not_ignore) override;
 
-	std::string generate_namespace(bool last_colons = true) const;
 public:
 
-	UserClass(CppFile &file, const std::string &name, std::vector<std::string> _namespace, bool is_abstract = false)
-		: CppElement(file)
-		, _namespace(_namespace)
+	UserClass(CppFile &file, std::string name, std::vector<std::string> _namespace, bool is_abstract = false)
+		: UserType(file, std::move(name), std::move(_namespace))
 		, adding_headers(false)
-		, name(name)
 		, abstract_type(is_abstract)
 	{}
 	void add_base_class(const std::shared_ptr<UserClass> &base){
-		this->base_classes.push_back(base);
+		this->base_classes.emplace_back(base);
 	}
 	void add_element(const std::shared_ptr<ClassElement> &member){
-		this->elements.push_back(member);
-	}
-	std::ostream &output(std::ostream &stream) const override{
-		return stream << this->generate_namespace() << this->name;
+		this->elements.emplace_back(member);
 	}
 	std::string generate_header() const override;
 	std::string generate_destructor() const;
 	void generate_source(std::ostream &stream) const;
-	virtual void add_headers(std::set<std::string> &set);
-	const std::string &get_name() const{
-		return this->name;
-	}
+	void add_headers(std::set<std::string> &set) override;
 	void generate_get_object_node2(std::ostream &) const;
 	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
 	void generate_serialize(std::ostream &) const;
 	void generate_get_metadata(std::ostream &) const;
 	void generate_deserializer(std::ostream &) const;
-	std::string get_type_string() const override{
-		return this->name;
-	}
 	const TypeHash &get_type_hash() override{
 		if (!this->type_hash){
 			std::stringstream stream;
@@ -779,10 +792,37 @@ public:
 	void no_default_destructor();
 };
 
+class UserEnum : public UserType{
+	static inline std::uint32_t next_id = 1;
+	std::uint32_t id = next_id++;
+	std::shared_ptr<Type> underlying_type;
+	std::map<std::string, EasySignedBigNum> members_by_name;
+	std::map<EasySignedBigNum, std::string> members_by_value;
+
+	std::string generate_members() const;
+public:
+	UserEnum(CppFile &file, std::string name, std::vector<std::string> _namespace, std::shared_ptr<Type> underlying_type);
+	std::string base_get_type_string() const override;
+	std::string get_type_string() const override{
+		return this->name;
+	}
+	void set(std::string name, EasySignedBigNum value);
+	std::string generate_forward_declaration() const override;
+	std::string generate_header() const override;
+	std::shared_ptr<Type> get_underlying_type() const override{
+		return this->underlying_type;
+	}
+	std::uint32_t get_id() const{
+		return this->id;
+	}
+	std::vector<EasySignedBigNum> get_valid_values() const;
+};
+
 class CppFile{
 	std::string name;
 	std::vector<std::shared_ptr<CppElement>> elements;
 	std::unordered_map<std::string, std::shared_ptr<UserClass> > classes;
+	std::unordered_map<std::string, std::shared_ptr<UserEnum> > enums;
 	std::vector<std::pair<std::string, std::string>> type_mappings;
 	typedef std::map<unsigned, Type *> type_map_t;
 	type_map_t type_map;
@@ -803,13 +843,15 @@ class CppFile{
 	std::string generate_type_comments();
 	std::string generate_type_map();
 	std::string get_id_hashes_name();
+	std::string generate_enum_checkers();
 public:
 	CppFile(const std::string &name): name(name){}
 	void add_element(const std::shared_ptr<CppElement> &element){
 		this->elements.push_back(element);
-		auto Class = std::dynamic_pointer_cast<UserClass>(element);
-		if (Class)
+		if (auto Class = std::dynamic_pointer_cast<UserClass>(element))
 			this->classes[Class->get_name()] = Class;
+		else if (auto Enum = std::dynamic_pointer_cast<UserEnum>(element))
+			this->enums[Enum->get_name()] = Enum;
 	}
 	const std::string &get_name() const{
 		return this->name;
@@ -840,6 +882,7 @@ public:
 	}
 	void generate_pointer_allocator(std::ostream &);
 	void generate_cast_categorizer(std::ostream &);
+	void generate_enum_checker(std::ostream &);
 	void generate_get_metadata(std::ostream &);
 	std::uint32_t assign_type_ids();
 	void mark_virtual_inheritances();

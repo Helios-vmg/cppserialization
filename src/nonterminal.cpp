@@ -42,6 +42,106 @@ FileNonTerminal::FileNonTerminal(std::deque<std::shared_ptr<Token>> &input){
 	}
 }
 
+EnumMemberNonTerminal::EnumMemberNonTerminal(std::deque<std::shared_ptr<Token>> &input){
+	require_token_type(input, TokenType::IdentifierToken);
+	this->name = std::static_pointer_cast<IdentifierToken>(input.front());
+	input.pop_front();
+
+	require_fixed_token(input, FixedTokenType::Equals);
+	input.pop_front();
+
+	require_token_type(input, TokenType::IntegerToken);
+	this->value = std::static_pointer_cast<IntegerToken>(input.front());
+	input.pop_front();
+
+	require_fixed_token(input, FixedTokenType::Comma);
+	input.pop_front();
+}
+
+std::shared_ptr<Type> create_basic_type(FixedTokenType t){
+	switch (t){
+		case FixedTokenType::Bool:
+			return std::make_shared<BoolType>();
+		case FixedTokenType::Uint8T:
+			return IntegerType::uint8_t();
+		case FixedTokenType::Uint16T:
+			return IntegerType::uint16_t();
+		case FixedTokenType::Uint32T:
+			return IntegerType::uint32_t();
+		case FixedTokenType::Uint64T:
+			return IntegerType::uint64_t();
+		case FixedTokenType::Int8T:
+			return IntegerType::int8_t();
+		case FixedTokenType::Int16T:
+			return IntegerType::int16_t();
+		case FixedTokenType::Int32T:
+			return IntegerType::int32_t();
+		case FixedTokenType::Int64T:
+			return IntegerType::int64_t();
+		case FixedTokenType::Float:
+			return std::make_shared<FloatingPointType>(FloatingPointPrecision::Float);
+		case FixedTokenType::Double:
+			return std::make_shared<FloatingPointType>(FloatingPointPrecision::Double);
+		default:
+			return {};
+	}
+}
+
+EnumNonTerminal::EnumNonTerminal(std::deque<std::shared_ptr<Token>> &input){
+	require_fixed_token(input, FixedTokenType::Enum);
+	input.pop_front();
+
+	require_token_type(input, TokenType::IdentifierToken);
+	this->name = std::static_pointer_cast<IdentifierToken>(input.front());
+	input.pop_front();
+
+	require_fixed_token(input, FixedTokenType::Colon);
+	input.pop_front();
+
+	require_token_type(input, TokenType::FixedToken);
+	auto temp = std::static_pointer_cast<FixedToken>(input.front());
+	input.pop_front();
+
+	switch (this->underlying_type = temp->get_type()){
+		case FixedTokenType::Uint8T:
+		case FixedTokenType::Uint16T:
+		case FixedTokenType::Uint32T:
+		case FixedTokenType::Uint64T:
+		case FixedTokenType::Int8T:
+		case FixedTokenType::Int16T:
+		case FixedTokenType::Int32T:
+		case FixedTokenType::Int64T:
+			break;
+		default:
+			throw ParsingError();
+	}
+
+	require_fixed_token(input, FixedTokenType::LBrace);
+	input.pop_front();
+
+	while (!input.empty() && *input.front() != FixedTokenType::RBrace)
+		this->members.push_back(std::make_shared<EnumMemberNonTerminal>(input));
+
+	require_fixed_token(input, FixedTokenType::RBrace);
+	input.pop_front();
+}
+
+std::pair<std::shared_ptr<CppElement>, std::shared_ptr<Type>> EnumNonTerminal::generate_element_and_type(CppEvaluationState &state) const{
+	auto t = std::make_shared<UserEnum>(*state.result, this->get_name(), state.current_namespace, create_basic_type(this->underlying_type));
+	return { t, t };
+}
+
+void EnumNonTerminal::finish_declaration(const std::shared_ptr<CppElement> &element, CppEvaluationState &state) const{
+	auto Enum = std::dynamic_pointer_cast<UserEnum>(element);
+	if (!Enum)
+		throw std::runtime_error("Internal error: program in unknown state!");
+
+	for (auto &m : this->members){
+		auto [name, value] = m->get();
+		Enum->set(std::move(name), std::move(value));
+	}
+}
+
 IncludeDeclNonTerminal::IncludeDeclNonTerminal(std::deque<std::shared_ptr<Token>> &input){
 	require_fixed_token(input, FixedTokenType::IncludeDecl);
 	input.pop_front();
@@ -125,6 +225,8 @@ std::shared_ptr<TypeDeclarationNonTerminal> TypeDeclarationNonTerminal::create(s
 		case FixedTokenType::Struct:
 		case FixedTokenType::Class:
 			return create_class(input, assume_abstract);
+		case FixedTokenType::Enum:
+			return std::make_shared<EnumNonTerminal>(input);
 		default:
 			throw ParsingError();
 	}
@@ -277,12 +379,11 @@ DataDeclarationNonTerminal::DataDeclarationNonTerminal(std::deque<std::shared_pt
 
 	require_token_type(input, TokenType::FixedToken);
 	auto type = std::static_pointer_cast<FixedToken>(input.front())->get_type();
-	this->length = 1;
 	if (type == FixedTokenType::LBracket){
 		input.pop_front();
 
 		require_token_type(input, TokenType::IntegerToken);
-		this->length = std::static_pointer_cast<IntegerToken>(input.front())->get_value();
+		this->length = std::static_pointer_cast<IntegerToken>(input.front());
 		input.pop_front();
 
 		require_fixed_token(input, FixedTokenType::RBracket);
@@ -606,8 +707,8 @@ void AccessSpecifierNonTerminal::modify_class(const std::shared_ptr<UserClass> &
 
 void DataDeclarationNonTerminal::modify_class(const std::shared_ptr<UserClass> &Class, Accessibility &current_accessibility, CppEvaluationState &state) const{
 	auto type = this->type->create_type(state.dsl_type_map);
-	if (this->length > 1)
-		type = std::make_shared<ArrayType>(type, this->length);
+	if (this->length)
+		type = std::make_shared<ArrayType>(type, this->length->get_value());
 	auto name = this->name->get_name();
 	auto member = std::make_shared<ClassMember>(type, name, current_accessibility);
 	Class->add_element(member);
@@ -660,29 +761,9 @@ std::shared_ptr<Type> UserTypeSpecificationNonTerminal::create_type(dsl_type_map
 }
 
 std::shared_ptr<Type> NullaryTypeSpecificationNonTerminal::create_type(dsl_type_map_t &dsl_type_map) const{
+	if (auto ret = create_basic_type(this->type))
+		return ret;
 	switch (this->type){
-		case FixedTokenType::Bool:
-			return std::make_shared<BoolType>();
-		case FixedTokenType::Uint8T:
-			return IntegerType::uint8_t();
-		case FixedTokenType::Uint16T:
-			return IntegerType::uint16_t();
-		case FixedTokenType::Uint32T:
-			return IntegerType::uint32_t();
-		case FixedTokenType::Uint64T:
-			return IntegerType::uint64_t();
-		case FixedTokenType::Int8T:
-			return IntegerType::int8_t();
-		case FixedTokenType::Int16T:
-			return IntegerType::int16_t();
-		case FixedTokenType::Int32T:
-			return IntegerType::int32_t();
-		case FixedTokenType::Int64T:
-			return IntegerType::int64_t();
-		case FixedTokenType::Float:
-			return std::make_shared<FloatingPointType>(FloatingPointPrecision::Float);
-		case FixedTokenType::Double:
-			return std::make_shared<FloatingPointType>(FloatingPointPrecision::Double);
 		case FixedTokenType::String:
 			return std::make_shared<StringType>(CharacterWidth::Narrow);
 		case FixedTokenType::U32String:

@@ -39,7 +39,7 @@ void test4(std::uint32_t){
 	std::shared_ptr<inheritance_graph> g2;
 	{
 		ExampleDeserializerStream ds(stream);
-		g2.reset(ds.full_deserialization<inheritance_graph>(true));
+		g2 = ds.full_deserialization<inheritance_graph>(true);
 	}
 
 	auto c2 = std::dynamic_pointer_cast<C>(g2->nodesA.front());

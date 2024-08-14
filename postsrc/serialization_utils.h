@@ -249,4 +249,7 @@ public:
 	}
 };
 
+template <typename T>
+struct get_enum_type_id{};
+
 #endif

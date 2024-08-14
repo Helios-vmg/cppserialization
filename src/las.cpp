@@ -35,11 +35,32 @@ DEFINE_get_X_function_name(is_serializable)
 DEFINE_get_X_function_name(dynamic_cast)
 DEFINE_get_X_function_name(allocate_pointer)
 DEFINE_get_X_function_name(categorize_cast)
+DEFINE_get_X_function_name(check_enum)
 
 std::string IntegerType::get_type_string() const{
 	std::stringstream stream;
 	stream << (this->signedness ? 's' : 'u') << (8 << this->size);
 	return stream.str();
+}
+
+bool IntegerType::check_value(const EasySignedBigNum &value){
+
+	static const std::pair<const char *, const char *> limits[] = {
+		{                   "0",                  "256"},
+		{                "-128",                  "128"},
+		{                   "0",                "65536"},
+		{              "-32768",                "32768"},
+		{                   "0",           "4294967296"},
+		{         "-2147483648",           "2147483648"},
+		{                   "0", "18446744073709551616"},
+		{"-9223372036854775808",  "9223372036854775808"},
+	};
+
+	auto index = this->size * 2 + (int)this->signedness;
+	if (index < 0 || index > sizeof(limits) / sizeof(*limits))
+		return false;
+	auto [begin, end] = limits[index];
+	return EasySignedBigNum(begin) <= value && value < EasySignedBigNum(end);
 }
 
 std::string FloatingPointType::get_type_string() const{
@@ -130,6 +151,12 @@ void Type::generate_is_serializable(std::ostream &stream) const{
 	stream << "return " << (this->get_is_serializable() ? "true" : "false") << ";\n";
 }
 
+ArrayType::ArrayType(const std::shared_ptr<Type> &inner, const EasySignedBigNum &n): NestedType(inner){
+	if (n < 1)
+		throw std::runtime_error("array length must be >= 1");
+	this->length = n.make_positive();
+}
+
 void ArrayType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
 	static const char *format = 
 		"for (size_t {index} = 0; {index} != {length}; {index}++){{"
@@ -208,7 +235,7 @@ void UserClass::add_headers(std::set<std::string> &set){
 	}
 }
 
-std::string UserClass::generate_namespace(bool last_colons) const{
+std::string UserType::generate_namespace(bool last_colons) const{
 	std::string ret;
 	for (auto &ns : this->_namespace){
 		ret += ns;
@@ -336,7 +363,11 @@ void UserClass::generate_serialize(std::ostream &stream) const{
 		auto casted = std::dynamic_pointer_cast<ClassMember>(e);
 		if (!casted)
 			continue;
-		stream << "ss.serialize(this->" << casted->get_name() << ");\n";
+		stream << "ss.serialize(";
+		auto t = casted->get_type();
+		if (auto ut = t->get_underlying_type())
+			stream << "(" << ut->output() << ")";
+		stream << "(this->" << casted->get_name() << "));\n";
 	}
 }
 
@@ -452,6 +483,12 @@ std::shared_ptr<SerializableMetadata> {namespace}{name}::static_get_metadata(){{
 		<< "gmd" << this->generate_get_metadata());
 }
 
+UserType::UserType(CppFile &file, std::string name, std::vector<std::string> _namespace)
+	: CppElement(file)
+	, name(std::move(name))
+	, _namespace(std::move(_namespace))
+{}
+
 void UserClass::iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited){
 	for (auto &b : this->base_classes)
 		b.Class->iterate(callback, visited);
@@ -478,7 +515,7 @@ void UserClass::iterate_only_public_internal(iterate_callback_t &callback, std::
 
 std::string UserClass::base_get_type_string() const{
 	std::stringstream stream;
-	stream << '{' << this->get_type_string();
+	stream << "{class " << this->get_type_string();
 	for (auto &b : this->base_classes)
 		stream << ':' << b.Class->base_get_type_string();
 	stream << '(';
@@ -620,6 +657,82 @@ void UserClass::no_default_destructor(){
 	this->default_destructor = false;
 }
 
+UserEnum::UserEnum(CppFile &file, std::string name, std::vector<std::string> _namespace, std::shared_ptr<Type> underlying_type)
+	: UserType(file, std::move(name), std::move(_namespace))
+	, underlying_type(std::move(underlying_type))
+{}
+
+std::string UserEnum::base_get_type_string() const{
+	return "{enum" + this->name + ":" + this->underlying_type->base_get_type_string() + "}";
+}
+
+void UserEnum::set(std::string name, EasySignedBigNum value){
+	auto it1 = this->members_by_name.find(name);
+	if (it1 != this->members_by_name.end())
+		throw std::runtime_error("enum " + this->name + " contains member " + name + " multiple times");
+	auto it2 = this->members_by_value.find(value);
+	if (it2 != this->members_by_value.end())
+		throw std::runtime_error("enum " + this->name + " contains value " + value.to_string() + " multiple times");
+
+	if (!this->underlying_type->check_value(value))
+		throw std::runtime_error("value " + value.to_string() + " is out of bounds for type " + this->underlying_type->output());
+
+	this->members_by_name[name] = value;
+	this->members_by_value[std::move(value)] = std::move(name);
+}
+
+std::string UserEnum::generate_forward_declaration() const{
+	std::stringstream ret;
+	if (!this->_namespace.empty())
+		ret << "namespace " << this->generate_namespace(false) << "{\n";
+	ret << "enum class " + this->name + " : " + this->underlying_type->output() + ";\n";
+	if (!this->_namespace.empty())
+		ret << "}\n";
+	return ret.str();
+}
+
+std::string UserEnum::generate_header() const{
+	static const char *const format = R"file(
+enum class {name} : {underlying_type}{{
+{members}
+}};
+
+template <>
+struct get_enum_type_id<{name}>{{
+	static const std::uint32_t value = {id};
+}};
+)file";
+
+	return variable_formatter(format)
+		<< "name" << this->name
+		<< "underlying_type" << this->underlying_type->output()
+		<< "members" << this->generate_members()
+		<< "id" << this->id;
+}
+
+std::vector<EasySignedBigNum> UserEnum::get_valid_values() const{
+	std::vector<EasySignedBigNum> ret;
+	ret.reserve(this->members_by_value.size());
+	for (auto &[k, v] : this->members_by_value)
+		ret.push_back(k);
+	return ret;
+}
+
+std::string UserEnum::generate_members() const{
+	static const char *const format = R"file(
+{name} = {value},
+)file";
+
+	std::string ret;
+	for (auto &[value, name] : this->members_by_value){
+		ret += variable_formatter(format)
+			<< "name" << name
+			<< "value" << value;
+	}
+
+	return ret;
+}
+
 std::uint32_t CppFile::assign_type_ids(){
 	std::uint32_t id = 1;
 	
@@ -731,6 +844,9 @@ void CppFile::generate_header(){
 #include "SerializerStream.h"
 #include "DeserializerStream.h"
 #include "serialization_utils.inl"
+
+/*template <typename T>
+struct get_enum_type_id{};*/
 )file"
 	;
 	for (auto &e : this->elements)
@@ -1304,6 +1420,79 @@ CastCategory {name}(std::uint32_t src_type, std::uint32_t dst_type){{
 	stream << s;
 }
 
+std::string to_list(const std::vector<EasySignedBigNum> &values){
+	std::stringstream ret;
+	for (auto &i : values)
+		ret << i << ", ";
+	return ret.str();
+}
+
+std::string CppFile::generate_enum_checkers(){
+	static const char * const format = R"file(
+[](const void *void_value){{
+	static const {type} valid_values[] = {{ {values} }};
+	auto value = *(const {type} *)void_value;
+	auto end = valid_values + {length};
+	auto it = std::lower_bound(valid_values, end, value);
+	return it != end && *it == value;
+}},
+)file";
+
+	std::string ret;
+	size_t i = 0;
+	for (auto &[_, e] : this->enums){
+		i++;
+		if (e->get_id() != i)
+			throw std::runtime_error("unresolvable condition: can't generate enum checkers");
+
+		auto values = e->get_valid_values();
+
+		ret += variable_formatter(format)
+			<< "type" << e->get_underlying_type()->output()
+			<< "values" << to_list(values)
+			<< "length" << values.size();
+	}
+
+	return ret;
+}
+
+void CppFile::generate_enum_checker(std::ostream &stream){
+	static const char *const empty = R"file(
+bool {name}(std::uint32_t enum_type_id, const void *value){{
+	return true;
+}}
+)file";
+
+	static const char * const format = R"file(
+bool {name}(std::uint32_t enum_type_id, const void *value){{
+	if (enum_type_id < 1 || enum_type_id > {max_type})
+		return false;
+	typedef bool (*checker)(const void *);
+	static const checker checkers[] = {{
+{checkers}
+	}};
+	enum_type_id--;
+	return checkers[enum_type_id](value);
+}}
+)file";
+
+	std::string s;
+	if (this->enums.empty()){
+		s = variable_formatter(empty)
+			<< "name" << get_check_enum_function_name()
+		;
+	}else{
+		auto checkers = this->generate_enum_checkers();
+
+		s = variable_formatter(format)
+			<< "name" << get_check_enum_function_name()
+			<< "checkers" << this->generate_enum_checkers()
+			<< "max_type" << this->enums.size()
+		;
+	}
+	stream << s;
+}
+
 std::string CppFile::generate_type_comments(){
 	std::stringstream ret;
 	for (auto &[id, type] : this->type_map)
@@ -1335,13 +1524,14 @@ void CppFile::generate_get_metadata(std::ostream &file){
 {get_metadata_signature}{{
 	std::shared_ptr<SerializableMetadata> ret(new SerializableMetadata);
 	ret->set_functions(
-		{get_allocator},
-		{get_constructor},
-		{get_rollbacker},
-		{get_is_serializable},
-		{get_dynamic_cast},
-		{get_allocate_pointer},
-		{get_categorize_cast}
+		{allocator},
+		{constructor},
+		{rollbacker},
+		{is_serializable},
+		{dynamic_cast},
+		{allocate_pointer},
+		{categorize_cast},
+		{check_enum}
 	);
 	for (auto &[id, hash] : {array_name})
 		ret->add_type(id, hash);
@@ -1351,13 +1541,14 @@ void CppFile::generate_get_metadata(std::ostream &file){
 
 	std::string s = variable_formatter(format2)
 		<< "get_metadata_signature" << generate_get_metadata_signature()
-		<< "get_allocator" << get_allocator_function_name()
-		<< "get_constructor" << get_constructor_function_name()
-		<< "get_rollbacker" << get_rollbacker_function_name()
-		<< "get_is_serializable" << get_is_serializable_function_name()
-		<< "get_dynamic_cast" << get_dynamic_cast_function_name()
-		<< "get_allocate_pointer" << get_allocate_pointer_function_name()
-		<< "get_categorize_cast" << get_categorize_cast_function_name()
+		<< "allocator" << get_allocator_function_name()
+		<< "constructor" << get_constructor_function_name()
+		<< "rollbacker" << get_rollbacker_function_name()
+		<< "is_serializable" << get_is_serializable_function_name()
+		<< "dynamic_cast" << get_dynamic_cast_function_name()
+		<< "allocate_pointer" << get_allocate_pointer_function_name()
+		<< "categorize_cast" << get_categorize_cast_function_name()
+		<< "check_enum" << get_check_enum_function_name()
 		<< "array_name" << this->get_id_hashes_name();
 	file << s;
 }
@@ -1373,6 +1564,7 @@ void CppFile::generate_aux(){
 #include <utility>
 #include <cstdint>
 #include <memory>
+#include <algorithm>
 
 {type_comments}
 
@@ -1399,6 +1591,7 @@ std::pair<std::uint32_t, TypeHash> {array_name}[] = {{
 		&CppFile::generate_generic_pointer_classes_and_implementations,
 		&CppFile::generate_pointer_allocator,
 		&CppFile::generate_cast_categorizer,
+		&CppFile::generate_enum_checker,
 		&CppFile::generate_get_metadata,
 	};
 

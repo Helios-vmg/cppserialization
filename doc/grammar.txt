@@ -37,7 +37,10 @@ include_directive:
     } STRING;
 
 type_decl:
-    class_decl;
+    1{
+        class_decl
+        enum_decl
+    };
 
 namespace_decl:
     "namespace" IDENT "{" [0,]{ type_or_namespace_decl } "}"
@@ -86,6 +89,24 @@ access_spec:
 data_decl:
     type_spec IDENT ?{ "[" NUMBER "]" } ";";
 
+enum_decl:
+    "enum" IDENT ":" numeric_type_spec "{" [0,]{ enum_member_decl } "}";
+    
+enum_member_decl:
+    IDENT "=" NUMBER ",";
+
+numeric_type_spec:
+    1{
+        "u8"
+        "u16"
+        "u32"
+        "u64"
+        "i8"
+        "i16"
+        "i32"
+        "i64"
+    };
+
 use_verbatim:
     "$" IDENT;
 
@@ -108,15 +129,8 @@ user_type_spec:
 
 nullary_type_spec:
     1{
+        numeric_type_spec
         "bool"
-        "u8"
-        "u16"
-        "u32"
-        "u64"
-        "i8"
-        "i16"
-        "i32"
-        "i64"
         "float"
         "double"
         "string"

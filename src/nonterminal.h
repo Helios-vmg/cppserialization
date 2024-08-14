@@ -3,6 +3,7 @@
 #include <unordered_set>
 
 #include "las.h"
+#include "nonterminal.h"
 #include "token.h"
 
 typedef std::unordered_map<std::string, std::shared_ptr<Type>> dsl_type_map_t;
@@ -87,7 +88,7 @@ public:
 class DataDeclarationNonTerminal : public ClassInternalNonTerminal{
 	std::shared_ptr<TypeSpecificationNonTerminal> type;
 	std::shared_ptr<IdentifierToken> name;
-	unsigned length;
+	std::shared_ptr<IntegerToken> length;
 public:
 	DataDeclarationNonTerminal(std::deque<std::shared_ptr<Token>> &input);
 	void modify_class(const std::shared_ptr<UserClass> &Class, Accessibility &current_accessibility, CppEvaluationState &) const override;
@@ -207,6 +208,31 @@ public:
 	std::string get_name() const override{
 		return this->name->get_name();
 	}
+};
+
+class EnumMemberNonTerminal{
+	std::shared_ptr<IdentifierToken> name;
+	std::shared_ptr<IntegerToken> value;
+public:
+	EnumMemberNonTerminal(std::deque<std::shared_ptr<Token>> &input);
+	std::pair<std::string, EasySignedBigNum> get() const{
+		return { this->name->get_name(), this->value->get_value() };
+	}
+};
+
+class EnumNonTerminal : public TypeDeclarationNonTerminal{
+	std::shared_ptr<IdentifierToken> name;
+	FixedTokenType underlying_type;
+	std::vector<std::shared_ptr<EnumMemberNonTerminal>> members;
+
+	std::pair<std::shared_ptr<CppElement>, std::shared_ptr<Type>> generate_element_and_type(CppEvaluationState &) const override;
+public:
+	EnumNonTerminal(std::deque<std::shared_ptr<Token>> &input);
+	void forward_declare(CppEvaluationState &) override{}
+	std::string get_name() const override{
+		return this->name->get_name();
+	}
+	void finish_declaration(const std::shared_ptr<CppElement> &, CppEvaluationState &) const override;
 };
 
 class IncludeDeclNonTerminal : public TypeOrNamespaceOrIncludeDeclNonTerminal{

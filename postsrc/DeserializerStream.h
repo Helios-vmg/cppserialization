@@ -47,6 +47,7 @@ public:
 		AllocateObjectOfUnknownType,
 		InvalidCast,
 		OutOfMemory,
+		UnknownEnumValue,
 	};
 private:
 	typedef std::uint32_t objectid_t;
@@ -87,7 +88,7 @@ private:
 	typedef std::unique_ptr<GenericPointer> V;
 	std::map<K, V> base_pointers;
 
-	Serializable *perform_deserialization(SerializableMetadata &, bool includes_typehashes = false);
+	std::unique_ptr<Serializable> perform_deserialization(SerializableMetadata &, bool includes_typehashes = false);
 	int categorize_cast(std::uint32_t object_type, std::uint32_t dst_type);
 	std::unique_ptr<GenericPointer> allocate_pointer(std::uint32_t object_type, PointerType pointer_type, objectid_t object);
 	void set_pointer(void *pointer, PointerBackpatch::Setter::callback_t callback, GenericPointer &gp, std::uint32_t pointed_type);
@@ -223,13 +224,14 @@ public:
 	virtual ~DeserializerStream(){}
 	virtual void report_error(ErrorType, const char * = 0) = 0;
 	template <typename Target>
-	Target *full_deserialization(bool includes_typehashes = false){
+	std::unique_ptr<Target> full_deserialization(bool includes_typehashes = false){
 		auto metadata = Target::static_get_metadata();
 		auto p = this->perform_deserialization(*metadata, includes_typehashes);
-		auto ret = dynamic_cast<Target *>(p);
+		auto ret = dynamic_cast<Target *>(p.get());
 		if (!ret)
-			delete p;
-		return ret;
+			return {};
+		p.release();
+		return std::unique_ptr<Target>(ret);
 	}
 	template <typename T>
 	void deserialize(T *&t){
@@ -371,6 +373,15 @@ public:
 		o = std::move(temp);
 	}
 #endif
+	template <typename T>
+	std::enable_if_t<std::is_enum_v<T>, void>
+	deserialize(T &t){
+		std::underlying_type_t<T> temp;
+		this->deserialize(temp);
+		if (!this->metadata->check_enum_value(get_enum_type_id<T>::value, &temp))
+			this->report_error(ErrorType::InvalidProgramState);
+		t = (T)temp;
+	}
 };
 
 #endif

@@ -60,6 +60,9 @@
     <ClCompile Include="test5_client.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="test6.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gen.h">

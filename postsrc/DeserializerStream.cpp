@@ -42,7 +42,7 @@ It find_first_true(It begin, It end, const F &f){
 	return end;
 }
 
-Serializable *DeserializerStream::perform_deserialization(SerializableMetadata &metadata, bool includes_typehashes){
+std::unique_ptr<Serializable> DeserializerStream::perform_deserialization(SerializableMetadata &metadata, bool includes_typehashes){
 	this->metadata = &metadata;
 	auto &object_types = this->object_types;
 	object_types.clear();
@@ -211,7 +211,7 @@ Serializable *DeserializerStream::perform_deserialization(SerializableMetadata &
 #ifdef LOG
 		std::clog << "Deserialization done!\n";
 #endif
-	return (Serializable *)main_object;
+	return std::unique_ptr<Serializable>((Serializable *)main_object);
 }
 
 int DeserializerStream::categorize_cast(std::uint32_t object_type, std::uint32_t dst_type){
