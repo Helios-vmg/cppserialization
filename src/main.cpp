@@ -1,15 +1,30 @@
-#include "stdafx.h"
 #include "las.h"
-#include "util.h"
-#include "parser.h"
-#ifndef HAVE_PRECOMPILED_HEADERS
-#include <unordered_map>
-#include <sstream>
+#include "token.h"
+#include "nonterminal.h"
 #include <functional>
 #include <fstream>
 #include <queue>
 #include <iostream>
-#endif
+
+std::string read_file(const char *path){
+	std::ifstream file(path, std::ios::binary | std::ios::ate);
+	std::string ret;
+	if (!file)
+		return ret;
+	ret.resize((size_t)file.tellg());
+	file.seekg(0);
+	file.read(&ret[0], ret.size());
+	return ret;
+}
+
+std::deque<char> to_deque(const std::string &s){
+	return { s.begin(), s.end() };
+}
+
+std::deque<std::shared_ptr<Token>> tokenize(const std::string &input){
+	auto deque = to_deque(input);
+	return tokenize(deque);
+}
 
 int main(int argc, char **argv){
 	try{
@@ -19,18 +34,14 @@ int main(int argc, char **argv){
 			std::random_device dev;
 			rng.seed(dev());
 		}
-		std::vector<std::shared_ptr<CppFile> > cpps;
+		EvaluationResult r;
 		{
-			auto file = read_file(argv[1]);
-			auto input = tokenize(file);
-			FileNonTerminal cpp(input);
-			cpps = cpp.evaluate_ast();
+			auto input = tokenize(read_file(argv[1]));
+			FileNonTerminal file(input);
+			//file.patch_include_decls();
+			r = file.evaluate_ast();
 		}
-		for (auto &cpp : cpps){
-			cpp->generate_header();
-			cpp->generate_source();
-			cpp->generate_aux();
-		}
+		r.generate();
 	}catch (std::exception &e){
 		std::cerr << "Exception caught: " << e.what() << std::endl;
 		return -1;

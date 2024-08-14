@@ -1,0 +1,45 @@
+decl Types{
+    abstract class Request{
+        @Request_decl
+    }
+    class OpenFileRequest : Request{
+    public:
+        string path;
+        @OpenFileRequest_decl
+    }
+    class Response{
+        @Response_decl
+    }
+    class OpenFileResult : Response{
+    public:
+        vector<u8> contents;
+        @OpenFileResult_decl
+    }
+}
+cpp client{
+    Request_decl = verbatim{}verbatim
+    OpenFileRequest_decl = verbatim{
+        OpenFileRequest() = default;
+    }verbatim
+    Response_decl = verbatim{}verbatim
+    OpenFileResult_decl = verbatim{
+        OpenFileResult() = default;
+    }verbatim
+    
+    use_decl Types
+}
+cpp server{
+    Request_decl = verbatim{
+        virtual void handle(RequestHandler &) const = 0;
+    }verbatim
+    OpenFileRequest_decl = verbatim{
+        OpenFileRequest() = default;
+        void handle(RequestHandler &) const override;
+    }verbatim
+    Response_decl = verbatim{}verbatim
+    OpenFileResult_decl = verbatim{
+        OpenFileResult() = default;
+    }verbatim
+    
+    use_decl Types
+}

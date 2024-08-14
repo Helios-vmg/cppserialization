@@ -1,4 +1,6 @@
-#ifndef HAVE_PRECOMPILED_HEADERS
+#pragma once
+
+#include "typehash.h"
 #include <iostream>
 #include <sstream>
 #include <memory>
@@ -10,8 +12,8 @@
 #include <functional>
 #include <cstdint>
 #include <random>
-#endif
-#include "typehash.h"
+
+#include "variable_formatter.h"
 
 #define SERIALIZER_VERSION 1
 
@@ -25,8 +27,22 @@ public:
 	CppElement(CppFile &file): root(&file){}
 	virtual ~CppElement(){}
 	virtual std::ostream &output(std::ostream &) const = 0;
+	std::string output() const{
+		std::stringstream stream;
+		this->output(stream);
+		return stream.str();
+	}
 	CppFile &get_root() const{
 		return *this->root;
+	}
+	virtual std::string generate_inclusion() const{
+		return {};
+	}
+	virtual std::string generate_forward_declaration() const{
+		return {};
+	}
+	virtual std::string generate_header() const{
+		return this->output();
 	}
 };
 
@@ -61,6 +77,11 @@ protected:
 public:
 	virtual ~Type(){}
 	virtual std::ostream &output(std::ostream &stream) const = 0;
+	std::string output() const{
+		std::stringstream ret;
+		this->output(ret);
+		return ret.str();
+	}
 	virtual std::ostream &output(std::ostream &stream, const std::string &name) const{
 		this->output(stream);
 		return stream << " " << name;
@@ -75,6 +96,11 @@ public:
 	}
 	virtual void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{}
 	virtual void generate_deserializer(std::ostream &stream, const char *deserializer_name, const char *pointer_name) const;
+	virtual std::string generate_deserializer(const char *deserializer_name, const char *pointer_name) const{
+		std::stringstream stream;
+		this->generate_deserializer(stream, deserializer_name, pointer_name);
+		return stream.str();
+	}
 	virtual void generate_rollbacker(std::ostream &stream, const char *pointer_name) const;
 	void generate_is_serializable(std::ostream &stream) const;
 	virtual bool get_is_serializable() const{
@@ -84,6 +110,9 @@ public:
 		return this->type_id;
 	}
 	virtual std::string get_type_string() const = 0;
+	virtual std::string base_get_type_string() const{
+		return this->get_type_string();
+	}
 	virtual const TypeHash &get_type_hash(){
 		if (!this->type_hash){
 			std::stringstream stream;
@@ -131,14 +160,17 @@ public:
 	virtual CppVersion minimum_cpp_version() const{
 		return CppVersion::Cpp2011;
 	}
+	virtual std::string fully_qualified_name() const{
+		return this->output();
+	}
 };
 
 #if 1
-inline std::ostream &operator<<(std::ostream &stream, Type &t){
+inline std::ostream &operator<<(std::ostream &stream, const Type &t){
 	return t.output(stream);
 }
 
-inline std::ostream &operator<<(std::ostream &stream, Type *t){
+inline std::ostream &operator<<(std::ostream &stream, const Type *t){
 	return t->output(stream);
 }
 
@@ -162,6 +194,7 @@ inline std::ostream &operator<<(std::ostream &stream, std::shared_ptr<T> t){
 
 class BoolType : public Type{
 public:
+	using Type::output;
 	std::ostream &output(std::ostream &stream) const override{
 		return stream << "bool";
 	}
@@ -206,6 +239,7 @@ public:
 	static std::shared_ptr<IntegerType> int64_t(){
 		return creator_helper(7);
 	}
+	using Type::output;
 	std::ostream &output(std::ostream &stream) const override{
 		return stream << "std::" << (!this->signedness ? "u" : "") << "int" << (8 << this->size) << "_t";
 	}
@@ -228,6 +262,7 @@ public:
 	FloatingPointPrecision get_precision() const{
 		return this->precision;
 	}
+	using Type::output;
 	std::ostream &output(std::ostream &stream) const override{
 		return stream << this->get_type_string();
 	}
@@ -243,6 +278,7 @@ class StringType : public Type{
 	CharacterWidth width;
 public:
 	StringType(CharacterWidth width): width(width){}
+	using Type::output;
 	std::ostream &output(std::ostream &stream) const override{
 		stream << "std::";
 		const char *s;
@@ -251,7 +287,7 @@ public:
 				s = "string";
 				break;
 			case CharacterWidth::Wide:
-				s = "wstring";
+				s = "u32string";
 				break;
 			default:
 				break;
@@ -268,7 +304,7 @@ public:
 				s = "str";
 				break;
 			case CharacterWidth::Wide:
-				s = "wstr";
+				s = "u32str";
 				break;
 			default:
 				break;
@@ -630,6 +666,15 @@ public:
 	}
 };
 
+class VerbatimBlock : public ClassElement{
+	std::string content;
+public:
+	VerbatimBlock(std::string content): content(std::move(content)){}
+	std::ostream &output(std::ostream &stream) const override{
+		return stream << this->content;
+	}
+};
+
 class UserClass;
 
 struct InheritanceEdge{
@@ -640,6 +685,7 @@ struct InheritanceEdge{
 };
 
 class UserClass : public Type, public CppElement{
+	std::vector<std::string> _namespace;
 	std::vector<InheritanceEdge> base_classes;
 	std::vector<std::shared_ptr<ClassElement>> elements;
 	std::string name;
@@ -650,16 +696,21 @@ class UserClass : public Type, public CppElement{
 	std::uint32_t diamond_detection = 0;
 	std::vector<UserClass *> all_base_classes;
 	int trivial_class = -1;
+	bool default_destructor = true;
 protected:
 	virtual void iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited) override;
 	virtual void iterate_only_public_internal(iterate_callback_t &callback, std::set<Type *> &visited, bool do_not_ignore) override;
+
+	std::string generate_namespace(bool last_colons = true) const;
 public:
 
-	UserClass(CppFile &file, const std::string &name, bool is_abstract = false):
-		CppElement(file),
-		adding_headers(false),
-		name(name),
-		abstract_type(is_abstract){}
+	UserClass(CppFile &file, const std::string &name, std::vector<std::string> _namespace, bool is_abstract = false)
+		: CppElement(file)
+		, _namespace(_namespace)
+		, adding_headers(false)
+		, name(name)
+		, abstract_type(is_abstract)
+	{}
 	void add_base_class(const std::shared_ptr<UserClass> &base){
 		this->base_classes.push_back(base);
 	}
@@ -667,9 +718,10 @@ public:
 		this->elements.push_back(member);
 	}
 	std::ostream &output(std::ostream &stream) const override{
-		return stream << this->name;
+		return stream << this->generate_namespace() << this->name;
 	}
-	void generate_header(std::ostream &stream) const;
+	std::string generate_header() const override;
+	std::string generate_destructor() const;
 	void generate_source(std::ostream &stream) const;
 	virtual void add_headers(std::set<std::string> &set);
 	const std::string &get_name() const{
@@ -691,7 +743,7 @@ public:
 		}
 		return this->type_hash;
 	}
-	std::string base_get_type_string() const;
+	std::string base_get_type_string() const override;
 	void generate_get_type_hash(std::ostream &) const;
 #define DEFINE_GENERATE_OVERLOAD(x) \
 	std::string x() const{          \
@@ -723,14 +775,34 @@ public:
 	const std::vector<UserClass *> &get_all_base_classes();
 	bool is_trivial_class();
 	CppVersion minimum_cpp_version() const override;
+	std::string generate_forward_declaration() const override;
+	void no_default_destructor();
 };
 
 class CppFile{
 	std::string name;
-	std::vector<std::shared_ptr<CppElement> > elements;
+	std::vector<std::shared_ptr<CppElement>> elements;
 	std::unordered_map<std::string, std::shared_ptr<UserClass> > classes;
+	std::vector<std::pair<std::string, std::string>> type_mappings;
 	typedef std::map<unsigned, Type *> type_map_t;
 	type_map_t type_map;
+
+	std::string generate_sizes();
+	std::string generate_deserializers();
+	std::string generate_rollbackers();
+	std::string generate_dynamic_casts();
+	std::string generate_cast_cases(UserClass &, const char *format);
+	std::string generate_raw_pointer_cast_cases(UserClass &);
+	std::string generate_shared_ptr_cast_cases(UserClass &);
+	std::string generate_unique_ptr_cast_cases(UserClass &);
+	std::string generate_allocator_cases(const char *format);
+	std::string generate_raw_pointer_allocator_cases();
+	std::string generate_shared_pointer_allocator_cases();
+	std::string generate_unique_ptr_allocator_cases();
+	std::string generate_cast_categories(unsigned max_type);
+	std::string generate_type_comments();
+	std::string generate_type_map();
+	std::string get_id_hashes_name();
 public:
 	CppFile(const std::string &name): name(name){}
 	void add_element(const std::shared_ptr<CppElement> &element){
@@ -745,6 +817,9 @@ public:
 	const decltype(classes) &get_classes() const{
 		return this->classes;
 	}
+	void add_type_mapping(std::string src, std::string dst){
+		this->type_mappings.emplace_back(std::move(src), std::move(dst));
+	}
 	void generate_header();
 	void generate_source();
 	void generate_aux();
@@ -756,8 +831,16 @@ public:
 	void generate_dynamic_cast(std::ostream &);
 	void generate_generic_pointer_classes(std::ostream &);
 	void generate_generic_pointer_class_implementations(std::ostream &);
+	void generate_generic_pointer_classes_and_implementations(std::ostream &file){
+		file << "namespace {\n";
+		this->generate_generic_pointer_classes(file);
+		file << std::endl;
+		this->generate_generic_pointer_class_implementations(file);
+		file << "\n}\n";
+	}
 	void generate_pointer_allocator(std::ostream &);
 	void generate_cast_categorizer(std::ostream &);
+	void generate_get_metadata(std::ostream &);
 	std::uint32_t assign_type_ids();
 	void mark_virtual_inheritances();
 	CppVersion minimum_cpp_version() const;

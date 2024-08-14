@@ -1,8 +1,8 @@
-#ifndef HAVE_PRECOMPILED_HEADERS
+#pragma once
+
 #include <string>
 #include <map>
 #include <sstream>
-#endif
 
 template <typename T>
 class basic_variable_formatter{

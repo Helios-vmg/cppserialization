@@ -1,10 +1,7 @@
-#include "stdafx.h"
 #include "typehash.h"
 #include "sha256.h"
-#ifndef HAVE_PRECOMPILED_HEADERS
 #include <sstream>
 #include <iomanip>
-#endif
 
 TypeHash::TypeHash(){
 	this->valid = false;

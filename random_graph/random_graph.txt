@@ -2,18 +2,11 @@ cpp random_graph{
 	class graph{
 		pointer<node> first;
 		uint64_t node_count;
-	public:
-		/*
-		Idiosyncrasy warning: The alternate #include syntax would be
-		#include <"graph.h">
-		*/
-		#include "graph.h"
+		string name;
 	}
 	class node{
 		vector<pointer<node>> children;
 		uint64_t name;
 		string data;
-	public:
-		#include "node.h"
 	}
 }

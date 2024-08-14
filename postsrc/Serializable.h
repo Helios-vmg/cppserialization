@@ -58,7 +58,7 @@ public:
 	virtual std::uint32_t get_type_id() const = 0;
 	virtual TypeHash get_type_hash() const = 0;
 	virtual std::shared_ptr<SerializableMetadata> get_metadata() const = 0;
-	virtual void rollback_deserialization() = 0;
+	virtual void rollback_deserialization(){}
 	oid_t get_id() const{
 		return this->id;
 	}

@@ -1,0 +1,141 @@
+file:
+    *{
+        top_level_declaration
+    };
+
+top_level_declaration:
+    1{
+        decl
+        cpp
+        verbatim_assignment
+    };
+
+decl:
+    "decl" IDENT "{" *{ type_or_namespace_decl } "}";
+    
+type_or_namespace_decl:
+    1{
+        type_decl
+        namespace_decl
+    }
+
+cpp:
+    "cpp" IDENT "{" *{ cpp_decl } "}";
+
+cpp_decl:
+    1{
+        include_directive
+        cpp_namespace_decl
+        verbatim_assignment
+        cpp_namespace_decl_element
+    };
+
+include_directive:
+    1{
+        "local_include"
+        "global_include"
+    } STRING;
+
+type_decl:
+    class_decl;
+
+namespace_decl:
+    "namespace" IDENT "{" [0,]{ type_or_namespace_decl } "}"
+
+cpp_namespace_decl:
+    "namespace" IDENT "{"
+        [0,]{
+            cpp_namespace_decl_element
+        }
+    "}";
+
+cpp_namespace_decl_element:
+    1{
+        include_decl
+        type_or_namespace_decl
+    };
+
+include_decl:
+    "include_decl" IDENT;
+
+verbatim_assignment:
+    IDENT "=" VERBATIM;
+
+class_decl:
+    ?{ "abstract" } 1{ "class" "struct" } IDENT ?{ ":" inheritance_spec } "{" *{ class_internal } "}";
+
+inheritance_spec:
+    IDENT *{ "," IDENT };
+
+class_internal:
+    1{
+        access_spec
+        data_decl
+        use_verbatim
+        verbatim_block
+        custom_dtor
+    };
+
+access_spec:
+    1{
+        "public"
+        "protected"
+        "private"
+    } ":";
+
+data_decl:
+    type_spec IDENT ?{ "[" NUMBER "]" } ";";
+
+use_verbatim:
+    "$" IDENT;
+
+verbatim_block:
+    VERBATIM
+
+custom_dtor:
+        "custom_dtor"
+
+type_spec:
+    1{
+        user_type_spec
+        nullary_type_spec
+        unary_type_spec
+        binary_type_spec
+    };
+
+user_type_spec:
+    IDENT;
+
+nullary_type_spec:
+    1{
+        "bool"
+        "u8"
+        "u16"
+        "u32"
+        "u64"
+        "i8"
+        "i16"
+        "i32"
+        "i64"
+        "float"
+        "double"
+        "string"
+        "u32string"
+    };
+
+unary_type_spec:
+    1{
+        "pointer"
+        "unique_ptr"
+        "shared_ptr"
+        "vector"
+        "list"
+        "set"
+        "unordered_set"
+    } "<" type_spec ">";
+
+binary_type_spec:
+    1{
+        "map"
+        "unordered_map"
+    } "<" type_spec "," type_spec ">";

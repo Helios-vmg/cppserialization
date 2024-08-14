@@ -88,6 +88,8 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)\postsrc</AdditionalIncludeDirectories>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -103,6 +105,8 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)\postsrc</AdditionalIncludeDirectories>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -120,6 +124,8 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)\postsrc</AdditionalIncludeDirectories>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -139,6 +145,8 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)\postsrc</AdditionalIncludeDirectories>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -148,16 +156,28 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="$(ProjectDir)\testtype.aux.generated.cpp" />
-    <ClCompile Include="$(ProjectDir)\testtype.generated.cpp" />
     <ClCompile Include="$(SolutionDir)\postsrc\SerializerStream.cpp" />
     <ClCompile Include="$(ProjectDir)\main.cpp" />
     <ClCompile Include="$(ProjectDir)\testtype.cpp" />
     <ClCompile Include="$(SolutionDir)\postsrc\DeserializerStream.cpp" />
     <ClCompile Include="$(SolutionDir)\postsrc\Serializable.cpp" />
+    <ClCompile Include="gen.cpp" />
+    <ClCompile Include="test1.cpp" />
+    <ClCompile Include="test2.cpp" />
+    <ClCompile Include="test3.cpp" />
+    <ClCompile Include="test4.cpp" />
+    <ClCompile Include="test5.cpp" />
+    <ClCompile Include="test5_client.cpp" />
+    <ClCompile Include="test5_server.cpp" />
+    <ClCompile Include="tests.cpp" />
+    <ClCompile Include="util.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="$(ProjectDir)\testtype.generated.h" />
+    <ClInclude Include="gen.h" />
+    <ClInclude Include="handler.h" />
+    <ClInclude Include="test5_decls.h" />
+    <ClInclude Include="tests.h" />
+    <ClInclude Include="util.h" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="test.txt">
@@ -181,10 +201,10 @@
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">cd "$(SolutionDir)\test1"
 "$(SolutionDir)\bin\LAS.exe" "%(FullPath)" &gt; nul
 </Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(SolutionDir)\test1\testtype.aux.generated.cpp;$(SolutionDir)\test1\testtype.generated.cpp;$(SolutionDir)\test1\testtype.generated.h;%(Outputs)</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)\test1\testtype.aux.generated.cpp;$(SolutionDir)\test1\testtype.generated.cpp;$(SolutionDir)\test1\testtype.generated.h;%(Outputs)</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(SolutionDir)\test1\testtype.aux.generated.cpp;$(SolutionDir)\test1\testtype.generated.cpp;$(SolutionDir)\test1\testtype.generated.h;%(Outputs)</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)\test1\testtype.aux.generated.cpp;$(SolutionDir)\test1\testtype.generated.cpp;$(SolutionDir)\test1\testtype.generated.h;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(SolutionDir)\test1\test1.aux.generated.cpp;$(SolutionDir)\test1\test1.generated.cpp;$(SolutionDir)\test1\test1.generated.h;$(SolutionDir)\test1\test2.aux.generated.cpp;$(SolutionDir)\test1\test2.generated.cpp;$(SolutionDir)\test1\test2.generated.h;$(SolutionDir)\test1\test3.aux.generated.cpp;$(SolutionDir)\test1\test3.generated.cpp;$(SolutionDir)\test1\test3.generated.h;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)\test1\test1.aux.generated.cpp;$(SolutionDir)\test1\test1.generated.cpp;$(SolutionDir)\test1\test1.generated.h;$(SolutionDir)\test1\test2.aux.generated.cpp;$(SolutionDir)\test1\test2.generated.cpp;$(SolutionDir)\test1\test2.generated.h;$(SolutionDir)\test1\test3.aux.generated.cpp;$(SolutionDir)\test1\test3.generated.cpp;$(SolutionDir)\test1\test3.generated.h;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(SolutionDir)\test1\test1.aux.generated.cpp;$(SolutionDir)\test1\test1.generated.cpp;$(SolutionDir)\test1\test1.generated.h;$(SolutionDir)\test1\test2.aux.generated.cpp;$(SolutionDir)\test1\test2.generated.cpp;$(SolutionDir)\test1\test2.generated.h;$(SolutionDir)\test1\test3.aux.generated.cpp;$(SolutionDir)\test1\test3.generated.cpp;$(SolutionDir)\test1\test3.generated.h;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)\test1\test1.aux.generated.cpp;$(SolutionDir)\test1\test1.generated.cpp;$(SolutionDir)\test1\test1.generated.h;$(SolutionDir)\test1\test2.aux.generated.cpp;$(SolutionDir)\test1\test2.generated.cpp;$(SolutionDir)\test1\test2.generated.h;$(SolutionDir)\test1\test3.aux.generated.cpp;$(SolutionDir)\test1\test3.generated.cpp;$(SolutionDir)\test1\test3.generated.h;%(Outputs)</Outputs>
     </CustomBuild>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

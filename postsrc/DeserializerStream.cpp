@@ -184,7 +184,7 @@ Serializable *DeserializerStream::perform_deserialization(SerializableMetadata &
 		this->state = State::Done;
 	}catch (std::bad_alloc &){
 		throw;
-	}catch (...){
+	}catch (std::exception &){
 		switch (this->state){
 			case State::Safe:
 				break;
@@ -195,6 +195,9 @@ Serializable *DeserializerStream::perform_deserialization(SerializableMetadata &
 			case State::InitializingObjects:
 				for (auto &p : initialized)
 					metadata.rollback_construction(object_types[p.first], p.second);
+				for (auto &[k, p] : this->base_pointers)
+					p->release();
+				this->base_pointers.clear();
 			case State::AllocatingMemory:
 				for (auto &pair : this->node_map)
 					::operator delete(pair.second);

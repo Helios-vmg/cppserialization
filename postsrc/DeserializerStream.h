@@ -15,6 +15,7 @@
 #define SERIALIZATION_HAVE_STD_OPTIONAL
 #include <optional>
 #endif
+#include "Serializable.h"
 #include "serialization_utils.h"
 
 class Serializable;
@@ -104,15 +105,24 @@ private:
 			case 0:
 				{
 					K key(oid, pointer_type);
-					GenericPointer *gp;
+					GenericPointer *gp = nullptr;
 					auto found = this->base_pointers.find(key);
 					if (found == this->base_pointers.end()){
 						auto temp = this->allocate_pointer(object_type, pointer_type, oid);
-						gp = temp.get();
-						this->base_pointers[key] = std::move(temp);
-					}else
+						if (pointer_type == PointerType::UniquePtr){
+							::set_pointer<T>(&t, temp->pointer);
+							this->base_pointers[key] = {};
+						}else{
+							gp = temp.get();
+							this->base_pointers[key] = std::move(temp);
+						}
+					}else{
 						gp = found->second.get();
-					this->set_pointer(&t, &::set_pointer<T>, *gp, dst_type);
+						if (!gp)
+							throw std::runtime_error("Multiple unique pointers to single object detected. (Is this correct?)");
+					}
+					if (gp)
+						this->set_pointer(&t, &::set_pointer<T>, *gp, dst_type);
 				}
 				return;
 			case 1:

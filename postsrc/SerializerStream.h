@@ -1,5 +1,4 @@
-#ifndef SERIALIZERSTREAM_H
-#define SERIALIZERSTREAM_H
+#pragma once
 
 #include <iostream>
 #include <cstdint>
@@ -14,10 +13,8 @@
 #include <stack>
 #include <climits>
 #include <array>
-#if __cplusplus >= 201703
 #define SERIALIZATION_HAVE_STD_OPTIONAL
 #include <optional>
-#endif
 #include "serialization_utils.h"
 #include "noexcept.h"
 
@@ -107,6 +104,10 @@ public:
 	template <typename T>
 	void serialize(const T *t){
 		this->serialize_id(t);
+	}
+	template <typename T>
+	void serialize(const std::unique_ptr<T> &t){
+		this->serialize_id(t.get());
 	}
 	template <typename T>
 	void serialize(const std::shared_ptr<T> &t){
@@ -228,9 +229,8 @@ public:
 	typename std::enable_if<std::is_base_of<Serializable, T>::value, void>::type serialize(const T &serializable){
 		serializable.serialize(*this);
 	}
-#ifdef SERIALIZATION_HAVE_STD_OPTIONAL
 	template <typename T>
-	void serialize(std::optional<T> &o){
+	void serialize(const std::optional<T> &o){
 		if (!o){
 			this->serialize(false);
 			return;
@@ -238,7 +238,4 @@ public:
 		this->serialize(true);
 		this->serialize(*o);
 	}
-#endif
 };
-
-#endif

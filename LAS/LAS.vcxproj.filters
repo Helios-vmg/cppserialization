@@ -33,9 +33,6 @@
     <ClCompile Include="..\src\typehash.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\stdafx.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\postsrc\DeserializerStream.cpp">
       <Filter>Source Files\postsrc</Filter>
     </ClCompile>
@@ -46,6 +43,12 @@
       <Filter>Source Files\postsrc</Filter>
     </ClCompile>
     <ClCompile Include="..\src\parser.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\nonterminal.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\token.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -77,14 +80,20 @@
     <ClInclude Include="..\postsrc\DeserializerStream.h">
       <Filter>Header Files\postsrc</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\stdafx.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\src\parser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\postsrc\ExampleDeserializerStream.h">
       <Filter>Header Files\postsrc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\errors.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\token.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\nonterminal.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

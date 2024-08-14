@@ -1,2 +1,0 @@
-public:
-test_type();
