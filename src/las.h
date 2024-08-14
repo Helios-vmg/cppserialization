@@ -26,12 +26,7 @@ protected:
 public:
 	CppElement(CppFile &file): root(&file){}
 	virtual ~CppElement(){}
-	virtual std::ostream &output(std::ostream &) const = 0;
-	std::string output() const{
-		std::stringstream stream;
-		this->output(stream);
-		return stream.str();
-	}
+	virtual std::string output() const = 0;
 	CppFile &get_root() const{
 		return *this->root;
 	}
@@ -76,15 +71,9 @@ protected:
 	}
 public:
 	virtual ~Type(){}
-	virtual std::ostream &output(std::ostream &stream) const = 0;
-	std::string output() const{
-		std::stringstream ret;
-		this->output(ret);
-		return ret.str();
-	}
-	virtual std::ostream &output(std::ostream &stream, const std::string &name) const{
-		this->output(stream);
-		return stream << " " << name;
+	virtual std::string output() const = 0;
+	virtual std::string output(const std::string &name) const{
+		return this->output() + " " + name;
 	}
 	virtual const char *header() const{
 		return nullptr;
@@ -171,38 +160,11 @@ public:
 	}
 };
 
-#if 1
-inline std::ostream &operator<<(std::ostream &stream, const Type &t){
-	return t.output(stream);
-}
-
-inline std::ostream &operator<<(std::ostream &stream, const Type *t){
-	return t->output(stream);
-}
-
-inline std::ostream &operator<<(std::ostream &stream, std::shared_ptr<Type> t){
-	return t->output(stream);
-}
-#else
-template <typename T>
-std::ostream &operator<<(std::ostream &stream, T &t){
-	return t.output(stream);
-}
-
-inline std::ostream &operator<<(std::ostream &stream, T *t){
-	return t->output(stream);
-}
-
-inline std::ostream &operator<<(std::ostream &stream, std::shared_ptr<T> t){
-	return t->output(stream);
-}
-#endif
-
 class BoolType : public Type{
 public:
 	using Type::output;
-	std::ostream &output(std::ostream &stream) const override{
-		return stream << "bool";
+	std::string output() const override{
+		return "bool";
 	}
 	std::string get_type_string() const override{
 		return "b";
@@ -246,9 +208,7 @@ public:
 		return creator_helper(7);
 	}
 	using Type::output;
-	std::ostream &output(std::ostream &stream) const override{
-		return stream << "std::" << (!this->signedness ? "u" : "") << "int" << (8 << this->size) << "_t";
-	}
+	std::string output() const override;
 	const char *header() const override{
 		return "<cstdint>";
 	}
@@ -270,8 +230,8 @@ public:
 		return this->precision;
 	}
 	using Type::output;
-	std::ostream &output(std::ostream &stream) const override{
-		return stream << this->get_type_string();
+	std::string output() const override{
+		return this->get_type_string();
 	}
 	std::string get_type_string() const override;
 };
@@ -286,21 +246,7 @@ class StringType : public Type{
 public:
 	StringType(CharacterWidth width): width(width){}
 	using Type::output;
-	std::ostream &output(std::ostream &stream) const override{
-		stream << "std::";
-		const char *s;
-		switch (this->width) {
-			case CharacterWidth::Narrow:
-				s = "string";
-				break;
-			case CharacterWidth::Wide:
-				s = "u32string";
-				break;
-			default:
-				break;
-		}
-		return stream << s;
-	}
+	std::string output() const override;
 	const char *header() const override{
 		return "<string>";
 	}
@@ -322,8 +268,8 @@ public:
 
 class DatetimeTime : public Type{
 public:
-	std::ostream &output(std::ostream &stream) const override{
-		return stream << "boost::datetime";
+	std::string output() const override{
+		return "boost::datetime";
 	}
 	std::string get_type_string() const override{
 		return "datetime";
@@ -357,12 +303,7 @@ class ArrayType : public NestedType{
 	EasyBigNum length;
 public:
 	ArrayType(const std::shared_ptr<Type> &inner, const EasySignedBigNum &n);
-	std::ostream &output(std::ostream &stream) const override{
-		return stream << "std::array< " << this->inner << ", " << this->length << ">";
-	}
-	std::ostream &output(std::ostream &stream, const std::string &name) const override{
-		return stream << "std::array< " << this->inner << ", " << this->length << "> " << name;
-	}
+	std::string output() const override;
 	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
 	std::string get_type_string() const override;
 	void generate_deserializer(std::ostream &stream, const char *deserializer_name, const char *pointer_name) const override;
@@ -374,8 +315,8 @@ public:
 class PointerType : public NestedType{
 public:
 	PointerType(const std::shared_ptr<Type> &inner): NestedType(inner){}
-	virtual std::ostream &output(std::ostream &stream) const override{
-		return stream << this->inner << " *";
+	std::string output() const override{
+		return this->inner->output() + " *";
 	}
 	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
 	std::string get_type_string() const override{
@@ -401,8 +342,8 @@ public:
 class SharedPtrType : public StdSmartPtrType{
 public:
 	SharedPtrType(const std::shared_ptr<Type> &inner): StdSmartPtrType(inner){}
-	std::ostream &output(std::ostream &stream) const override{
-		return stream << "std::shared_ptr<" << this->inner << ">";
+	std::string output() const override{
+		return "std::shared_ptr<" + this->inner->output() + ">";
 	}
 	std::string get_type_string() const override{
 		return "shared_ptr<" + this->inner->get_type_string() + ">";
@@ -412,8 +353,8 @@ public:
 class UniquePtrType : public StdSmartPtrType{
 public:
 	UniquePtrType(const std::shared_ptr<Type> &inner): StdSmartPtrType(inner){}
-	std::ostream &output(std::ostream &stream) const override{
-		return stream << "std::unique_ptr<" << this->inner << ">";
+	std::string output() const override{
+		return "std::unique_ptr<" + this->inner->output() + ">";
 	}
 	std::string get_type_string() const override{
 		return "unique_ptr<" + this->inner->get_type_string() + ">";
@@ -429,8 +370,8 @@ public:
 class VectorType : public SequenceType{
 public:
 	VectorType(const std::shared_ptr<Type> &inner): SequenceType(inner){}
-	std::ostream &output(std::ostream &stream) const override{
-		return stream << "std::vector<" << this->inner << ">";
+	std::string output() const override{
+		return "std::vector<" + this->inner->output() + ">";
 	}
 	const char *header() const override{
 		return "<vector>";
@@ -443,8 +384,8 @@ public:
 class ListType : public SequenceType{
 public:
 	ListType(const std::shared_ptr<Type> &inner): SequenceType(inner){}
-	std::ostream &output(std::ostream &stream) const override{
-		return stream << "std::list<" << this->inner << ">";
+	std::string output() const override{
+		return "std::list<" + this->inner->output() + ">";
 	}
 	const char *header() const override{
 		return "<list>";
@@ -457,8 +398,8 @@ public:
 class SetType : public SequenceType{
 public:
 	SetType(const std::shared_ptr<Type> &inner): SequenceType(inner){}
-	std::ostream &output(std::ostream &stream) const override{
-		return stream << "std::set<" << this->inner << ">";
+	std::string output() const override{
+		return "std::set<" + this->inner->output() + ">";
 	}
 	const char *header() const override{
 		return "<set>";
@@ -471,8 +412,8 @@ public:
 class HashSetType : public SequenceType{
 public:
 	HashSetType(const std::shared_ptr<Type> &inner): SequenceType(inner){}
-	std::ostream &output(std::ostream &stream) const override{
-		return stream << "std::unordered_set<" << this->inner << ">";
+	std::string output() const override{
+		return "std::unordered_set<" + this->inner->output() + ">";
 	}
 	const char *header() const override{
 		return "<unordered_set>";
@@ -485,8 +426,8 @@ public:
 class OptionalType : public NestedType{
 public:
 	OptionalType(const std::shared_ptr<Type> &inner): NestedType(inner){}
-	std::ostream &output(std::ostream &stream) const override{
-		return stream << "std::optional<" << this->inner << ">";
+	std::string output() const override{
+		return "std::optional<" + this->inner->output() + ">";
 	}
 	const char *header() const override{
 		return "<optional>";
@@ -503,12 +444,12 @@ class PairType : public Type{
 protected:
 	std::shared_ptr<Type> first,
 		second;
-	virtual void iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited) override{
+	void iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited) override{
 		this->first->iterate(callback, visited);
 		this->second->iterate(callback, visited);
 		Type::iterate_internal(callback, visited);
 	}
-	virtual void iterate_only_public_internal(iterate_callback_t &callback, std::set<Type *> &visited, bool do_not_ignore) override{
+	void iterate_only_public_internal(iterate_callback_t &callback, std::set<Type *> &visited, bool do_not_ignore) override{
 		bool not_ignore = this->is_pointer_type();
 		this->first->iterate_only_public(callback, visited, not_ignore);
 		this->second->iterate_only_public(callback, visited, not_ignore);
@@ -532,8 +473,8 @@ class MapType : public AssociativeArrayType{
 public:
 	MapType(const std::shared_ptr<Type> &first, const std::shared_ptr<Type> &second):
 		AssociativeArrayType(first, second){}
-	std::ostream &output(std::ostream &stream) const override{
-		return stream << "std::map<" << this->first << ", " << this->second << ">";
+	std::string output() const override{
+		return "std::map<" + this->first->output() + ", " + this->second->output() + ">";
 	}
 	const char *header() const override{
 		return "<map>";
@@ -547,8 +488,8 @@ class HashMapType : public AssociativeArrayType{
 public:
 	HashMapType(const std::shared_ptr<Type> &first, const std::shared_ptr<Type> &second):
 		AssociativeArrayType(first, second){}
-	std::ostream &output(std::ostream &stream) const override{
-		return stream << "std::unordered_map<" << this->first << ", " << this->second << ">";
+	std::string output() const override{
+		return "std::unordered_map<" + this->first->output() + ", " + this->second->output() + ">";
 	}
 	const char *header() const override{
 		return "<unordered_map>";
@@ -566,8 +507,8 @@ public:
 		type(type),
 		name(name){}
 	virtual ~Object(){}
-	virtual std::ostream &output(std::ostream &stream) const{
-		return this->type->output(stream, this->name);
+	virtual std::string output() const{
+		return this->type->output(this->name);
 	}
 	virtual void add_headers(std::set<std::string> &set){
 		this->type->add_headers(set);
@@ -582,34 +523,6 @@ public:
 		return this->name;
 	}
 };
-
-#if 1
-inline std::ostream &operator<<(std::ostream &stream, Object &t){
-	return t.output(stream);
-}
-
-inline std::ostream &operator<<(std::ostream &stream, Object *t){
-	return t->output(stream);
-}
-
-inline std::ostream &operator<<(std::ostream &stream, std::shared_ptr<Object> t){
-	return t->output(stream);
-}
-#endif
-
-#if 1
-inline std::ostream &operator<<(std::ostream &stream, CppElement &t){
-	return t.output(stream);
-}
-
-inline std::ostream &operator<<(std::ostream &stream, CppElement *t){
-	return t->output(stream);
-}
-
-inline std::ostream &operator<<(std::ostream &stream, std::shared_ptr<CppElement> t){
-	return t->output(stream);
-}
-#endif
 
 enum class Accessibility{
 	Public = 0,
@@ -632,7 +545,7 @@ inline const char *to_string(Accessibility a){
 class ClassElement{
 public:
 	virtual ~ClassElement(){}
-	virtual std::ostream &output(std::ostream &stream) const = 0;
+	virtual std::string output() const = 0;
 	virtual bool needs_semicolon() const{
 		return true;
 	}
@@ -641,29 +554,14 @@ public:
 	}
 };
 
-#if 1
-inline std::ostream &operator<<(std::ostream &stream, ClassElement &t){
-	return t.output(stream);
-}
-
-inline std::ostream &operator<<(std::ostream &stream, ClassElement *t){
-	return t->output(stream);
-}
-
-inline std::ostream &operator<<(std::ostream &stream, std::shared_ptr<ClassElement> t){
-	return t->output(stream);
-}
-#endif
-
 class ClassMember : public Object, public ClassElement{
 	Accessibility accessibility;
 public:
 	ClassMember(const std::shared_ptr<Type> &type, const std::string &name, Accessibility accessibility):
 		Object(type, name),
 		accessibility(accessibility){}
-	std::ostream &output(std::ostream &stream) const override{
-		stream << to_string(this->accessibility) << ": ";
-		return Object::output(stream);
+	std::string output() const override{
+		return (std::string)to_string(this->accessibility) + ": " + this->Object::output();
 	}
 	Accessibility get_accessibility() const{
 		return this->accessibility;
@@ -677,8 +575,8 @@ class VerbatimBlock : public ClassElement{
 	std::string content;
 public:
 	VerbatimBlock(std::string content): content(std::move(content)){}
-	std::ostream &output(std::ostream &stream) const override{
-		return stream << this->content;
+	std::string output() const override{
+		return this->content;
 	}
 };
 
@@ -703,8 +601,8 @@ public:
 	std::string get_type_string() const override{
 		return this->name;
 	}
-	std::ostream &output(std::ostream &stream) const override{
-		return stream << this->generate_namespace() << this->name;
+	std::string output() const override{
+		return this->generate_namespace() + this->name;
 	}
 	const std::string &get_name() const{
 		return this->name;
@@ -723,8 +621,8 @@ class UserClass : public UserType{
 	int trivial_class = -1;
 	bool default_destructor = true;
 protected:
-	virtual void iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited) override;
-	virtual void iterate_only_public_internal(iterate_callback_t &callback, std::set<Type *> &visited, bool do_not_ignore) override;
+	void iterate_internal(iterate_callback_t &callback, std::set<Type *> &visited) override;
+	void iterate_only_public_internal(iterate_callback_t &callback, std::set<Type *> &visited, bool do_not_ignore) override;
 
 public:
 
@@ -894,9 +792,7 @@ class UserInclude : public CppElement, public ClassElement{
 	bool relative;
 public:
 	UserInclude(CppFile &file, const std::string &include, bool relative): CppElement(file), include(include), relative(relative){}
-	std::ostream &output(std::ostream &stream) const{
-		return stream << "#include " << (this->relative ? '"' : '<') << this->include << (this->relative ? '"' : '>');
-	}
+	std::string output() const override;
 	bool needs_semicolon() const override{
 		return false;
 	}

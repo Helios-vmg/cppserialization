@@ -9,6 +9,8 @@
 #include <iomanip>
 #include <cctype>
 
+using namespace std::string_literals;
+
 std::mt19937_64 rng;
 std::uint64_t random_function_name = 0;
 
@@ -36,6 +38,10 @@ DEFINE_get_X_function_name(dynamic_cast)
 DEFINE_get_X_function_name(allocate_pointer)
 DEFINE_get_X_function_name(categorize_cast)
 DEFINE_get_X_function_name(check_enum)
+
+std::string IntegerType::output() const{
+	return "std::"s + (!this->signedness ? "u" : "") + "int" + std::to_string(8 << this->size) + "_t";
+}
 
 std::string IntegerType::get_type_string() const{
 	std::stringstream stream;
@@ -76,6 +82,21 @@ std::string FloatingPointType::get_type_string() const{
 			break;
 	}
 	return s;
+}
+
+std::string StringType::output() const{
+	const char *s = "";
+	switch (this->width) {
+		case CharacterWidth::Narrow:
+			s = "string";
+			break;
+		case CharacterWidth::Wide:
+			s = "u32string";
+			break;
+		default:
+			break;
+	}
+	return "std::"s + s;
 }
 
 std::string ArrayType::get_type_string() const{
@@ -155,6 +176,10 @@ ArrayType::ArrayType(const std::shared_ptr<Type> &inner, const EasySignedBigNum 
 	if (n < 1)
 		throw std::runtime_error("array length must be >= 1");
 	this->length = n.make_positive();
+}
+
+std::string ArrayType::output() const{
+	return "std::array<" + this->inner->output() + ", " + this->length.to_string() + ">";
 }
 
 void ArrayType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
@@ -269,7 +294,7 @@ std::string UserClass::generate_header() const{
 	}
 	stream << "{\n";
 	for (auto &el : this->elements)
-		stream << "" << el << (el->needs_semicolon() ? ";\n" : "\n");
+		stream << el->output() << (el->needs_semicolon() ? ";\n" : "\n");
 
 	static const char * const format =
 		"public:\n"
@@ -406,32 +431,38 @@ void UserClass::generate_deserializer(std::ostream &stream) const{
 		if (std::dynamic_pointer_cast<UserClass>(type))
 			stream << "ds";
 		else
-			stream << "proxy_constructor<" << type << ">(ds)";
+			stream << "proxy_constructor<" << type->output() << ">(ds)";
 		stream << ")\n";
 	}
 	stream << "{}";
 }
 
 void UserClass::generate_deserializer(std::ostream &stream, const char *deserializer_name, const char *pointer_name) const{
-	stream << "{\n";
-	this->output(stream);
-	stream << " *temp = (";
-	this->output(stream);
-	stream << " *)" << pointer_name << ";\n"
-		"new (temp) ";
-	this->output(stream);
-	stream << "(" << deserializer_name << ");\n"
-		"}\n";
+	static const char * const format = R"file(
+{{
+	{type} *temp = ({type} *){pointer_name};
+	new (temp) {type}({dn});
+}}
+)file";
+
+	std::string s = variable_formatter(format)
+		<< "type" << this->output()
+		<< "pointer_name" << pointer_name
+		<< "dn" << deserializer_name;
+	stream << s;
 }
 
 void UserClass::generate_rollbacker(std::ostream &stream, const char *pointer_name) const{
-	stream << "{\n";
-	this->output(stream);
-	stream << " *temp = (";
-	this->output(stream);
-	stream << " *)" << pointer_name << ";\n"
-		"temp->rollback_deserialization();\n"
-		"}\n";
+	static const char *const format = R"file(
+{{
+	{type} *temp = ({type} *){pointer_name};
+	temp->rollback_deserialization();
+}}
+)file";
+	std::string s = variable_formatter(format)
+		<< "type" << this->output()
+		<< "pointer_name" << pointer_name;
+	stream << s;
 }
 
 bool UserClass::get_is_serializable() const{
@@ -784,6 +815,10 @@ CppVersion CppFile::minimum_cpp_version() const{
 	return ret;
 }
 
+std::string UserInclude::output() const{
+	return "#include "s + (this->relative ? '"' : '<') + this->include + (this->relative ? '"' : '>');
+}
+
 const char *to_string(CppVersion version){
 	switch (version){
 		case CppVersion::Undefined:
@@ -895,7 +930,9 @@ struct static_get_type_id<{type}>{{
 
 )file";
 	for (auto &[id, type] : this->type_map){
-		std::string s = variable_formatter(pattern2) << "type" << *type << "value" << type->get_type_id();
+		std::string s = variable_formatter(pattern2)
+			<< "type" << type->output()
+			<< "value" << type->get_type_id();
 		file << s;
 	}
 
@@ -915,9 +952,7 @@ std::string CppFile::generate_sizes(){
 			ret << "0, ";
 			continue;
 		}
-		ret << "sizeof(";
-		kv.second->output(ret);
-		ret << "), ";
+		ret << "sizeof(" << kv.second->output() << "), ";
 	}
 
 	return ret.str();
@@ -1107,9 +1142,7 @@ std::string CppFile::generate_dynamic_casts(){
 			stream << "nullptr,\n";
 			continue;
 		}
-		stream << "[](void *p){ return dynamic_cast<Serializable *>((";
-		kv.second->output(stream);
-		stream << " *)p); },\n";
+		stream << "[](void *p){ return dynamic_cast<Serializable *>((" << kv.second->output() << " *)p); },\n";
 	}
 	return stream.str();
 }
