@@ -63,6 +63,15 @@
     <ClCompile Include="test6.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="test7.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="test7_a.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="test7_b.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gen.h">

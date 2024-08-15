@@ -379,7 +379,7 @@ public:
 		std::underlying_type_t<T> temp;
 		this->deserialize(temp);
 		if (!this->metadata->check_enum_value(get_enum_type_id<T>::value, &temp))
-			this->report_error(ErrorType::InvalidProgramState);
+			this->report_error(ErrorType::UnknownEnumValue);
 		t = (T)temp;
 	}
 };

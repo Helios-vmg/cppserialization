@@ -127,7 +127,7 @@ EnumNonTerminal::EnumNonTerminal(std::deque<std::shared_ptr<Token>> &input){
 }
 
 std::pair<std::shared_ptr<CppElement>, std::shared_ptr<Type>> EnumNonTerminal::generate_element_and_type(CppEvaluationState &state) const{
-	auto t = std::make_shared<UserEnum>(*state.result, this->get_name(), state.current_namespace, create_basic_type(this->underlying_type));
+	auto t = std::make_shared<UserEnum>(state, this->get_name(), state.current_namespace, create_basic_type(this->underlying_type));
 	return { t, t };
 }
 
@@ -561,7 +561,7 @@ std::shared_ptr<TypeOrNamespaceNonTerminal> TypeOrNamespaceNonTerminal::create(s
 
 void TypeDeclarationNonTerminal::update(CppEvaluationState &state){
 	auto [element, type] = this->generate_element_and_type(state);
-	state.dsl_type_map[type->get_type_string()] = std::move(type);
+	state.dsl_type_map[type->get_serializer_name()] = std::move(type);
 	state.declarations.emplace_back(this->shared_from_this(), std::move(element));
 }
 

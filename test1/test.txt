@@ -254,3 +254,34 @@ cpp test6{
 		}verbatim
 	}
 }
+decl test7_types{
+	class Object{
+	public:
+		ObjectType type;
+		verbatim{
+			Object() = default;
+		}verbatim
+	}
+}
+cpp test7_a{
+	namespace A{
+	enum ObjectType : u32{
+		Null = 0,
+		Int = 1,
+		Double = 2,
+		String = 3,
+	}
+	include_decl test7_types
+	}
+}
+cpp test7_b{
+	namespace B{
+	enum ObjectType : u32{
+		Null = 0,
+		Int = 1,
+		String = 3,
+		Buffer = 4,
+	}
+	include_decl test7_types
+	}
+}

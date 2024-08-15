@@ -39,11 +39,11 @@ DEFINE_get_X_function_name(allocate_pointer)
 DEFINE_get_X_function_name(categorize_cast)
 DEFINE_get_X_function_name(check_enum)
 
-std::string IntegerType::output() const{
+std::string IntegerType::get_source_name() const{
 	return "std::"s + (!this->signedness ? "u" : "") + "int" + std::to_string(8 << this->size) + "_t";
 }
 
-std::string IntegerType::get_type_string() const{
+std::string IntegerType::get_serializer_name() const{
 	std::stringstream stream;
 	stream << (this->signedness ? 's' : 'u') << (8 << this->size);
 	return stream.str();
@@ -69,7 +69,7 @@ bool IntegerType::check_value(const EasySignedBigNum &value){
 	return EasySignedBigNum(begin) <= value && value < EasySignedBigNum(end);
 }
 
-std::string FloatingPointType::get_type_string() const{
+std::string FloatingPointType::get_serializer_name() const{
 	const char *s;
 	switch (this->precision) {
 		case FloatingPointPrecision::Float:
@@ -84,7 +84,7 @@ std::string FloatingPointType::get_type_string() const{
 	return s;
 }
 
-std::string StringType::output() const{
+std::string StringType::get_source_name() const{
 	const char *s = "";
 	switch (this->width) {
 		case CharacterWidth::Narrow:
@@ -99,9 +99,9 @@ std::string StringType::output() const{
 	return "std::"s + s;
 }
 
-std::string ArrayType::get_type_string() const{
+std::string ArrayType::get_serializer_name() const{
 	std::stringstream stream;
-	stream << "std::array< " << this->inner->get_type_string() << ", " << this->length << ">";
+	stream << "std::array< " << this->inner->get_serializer_name() << ", " << this->length << ">";
 	return stream.str();
 }
 
@@ -154,7 +154,7 @@ void Type::generate_deserializer(std::ostream &stream, const char *deserializer_
 	new ({new_pointer}) {type};
 	{deserializer_name}.deserialize(*{new_pointer});
 }})file";
-	auto type = this->output();
+	auto type = this->get_source_name();
 	auto new_pointer = get_unique_varname();
 	std::string s = variable_formatter(format)
 		<< "type" << type
@@ -178,8 +178,8 @@ ArrayType::ArrayType(const std::shared_ptr<Type> &inner, const EasySignedBigNum 
 	this->length = n.make_positive();
 }
 
-std::string ArrayType::output() const{
-	return "std::array<" + this->inner->output() + ", " + this->length.to_string() + ">";
+std::string ArrayType::get_source_name() const{
+	return "std::array<" + this->inner->get_source_name() + ", " + this->length.to_string() + ">";
 }
 
 void ArrayType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
@@ -390,8 +390,9 @@ void UserClass::generate_serialize(std::ostream &stream) const{
 			continue;
 		stream << "ss.serialize(";
 		auto t = casted->get_type();
-		if (auto ut = t->get_underlying_type())
-			stream << "(" << ut->output() << ")";
+		auto ut = t->get_underlying_type();
+		if (t.get() != ut.get())
+			stream << "(" << ut->get_source_name() << ")";
 		stream << "(this->" << casted->get_name() << "));\n";
 	}
 }
@@ -431,7 +432,7 @@ void UserClass::generate_deserializer(std::ostream &stream) const{
 		if (std::dynamic_pointer_cast<UserClass>(type))
 			stream << "ds";
 		else
-			stream << "proxy_constructor<" << type->output() << ">(ds)";
+			stream << "proxy_constructor<" << type->get_source_name() << ">(ds)";
 		stream << ")\n";
 	}
 	stream << "{}";
@@ -446,7 +447,7 @@ void UserClass::generate_deserializer(std::ostream &stream, const char *deserial
 )file";
 
 	std::string s = variable_formatter(format)
-		<< "type" << this->output()
+		<< "type" << this->get_source_name()
 		<< "pointer_name" << pointer_name
 		<< "dn" << deserializer_name;
 	stream << s;
@@ -460,7 +461,7 @@ void UserClass::generate_rollbacker(std::ostream &stream, const char *pointer_na
 }}
 )file";
 	std::string s = variable_formatter(format)
-		<< "type" << this->output()
+		<< "type" << this->get_source_name()
 		<< "pointer_name" << pointer_name;
 	stream << s;
 }
@@ -546,7 +547,7 @@ void UserClass::iterate_only_public_internal(iterate_callback_t &callback, std::
 
 std::string UserClass::base_get_type_string() const{
 	std::stringstream stream;
-	stream << "{class " << this->get_type_string();
+	stream << "{class " << this->get_serializer_name();
 	for (auto &b : this->base_classes)
 		stream << ':' << b.Class->base_get_type_string();
 	stream << '(';
@@ -559,7 +560,7 @@ std::string UserClass::base_get_type_string() const{
 			stream << ',';
 		else
 			first = false;
-		stream << '(' << (int)casted->get_accessibility() << ',' << casted->get_type()->get_type_string() << ',' << casted->get_name() << ')';
+		stream << '(' << (int)casted->get_accessibility() << ',' << casted->get_type()->get_underlying_type()->get_serializer_name() << ',' << casted->get_name() << ')';
 	}
 	stream << ")}";
 	return stream.str();
@@ -688,10 +689,12 @@ void UserClass::no_default_destructor(){
 	this->default_destructor = false;
 }
 
-UserEnum::UserEnum(CppFile &file, std::string name, std::vector<std::string> _namespace, std::shared_ptr<Type> underlying_type)
-	: UserType(file, std::move(name), std::move(_namespace))
+UserEnum::UserEnum(CppEvaluationState &state, std::string name, std::vector<std::string> _namespace, std::shared_ptr<Type> underlying_type)
+	: UserType(*state.result, std::move(name), std::move(_namespace))
 	, underlying_type(std::move(underlying_type))
-{}
+{
+	this->id = state.next_enum_id++;
+}
 
 std::string UserEnum::base_get_type_string() const{
 	return "{enum" + this->name + ":" + this->underlying_type->base_get_type_string() + "}";
@@ -706,7 +709,7 @@ void UserEnum::set(std::string name, EasySignedBigNum value){
 		throw std::runtime_error("enum " + this->name + " contains value " + value.to_string() + " multiple times");
 
 	if (!this->underlying_type->check_value(value))
-		throw std::runtime_error("value " + value.to_string() + " is out of bounds for type " + this->underlying_type->output());
+		throw std::runtime_error("value " + value.to_string() + " is out of bounds for type " + this->underlying_type->get_source_name());
 
 	this->members_by_name[name] = value;
 	this->members_by_value[std::move(value)] = std::move(name);
@@ -716,7 +719,7 @@ std::string UserEnum::generate_forward_declaration() const{
 	std::stringstream ret;
 	if (!this->_namespace.empty())
 		ret << "namespace " << this->generate_namespace(false) << "{\n";
-	ret << "enum class " + this->name + " : " + this->underlying_type->output() + ";\n";
+	ret << "enum class " + this->name + " : " + this->underlying_type->get_source_name() + ";\n";
 	if (!this->_namespace.empty())
 		ret << "}\n";
 	return ret.str();
@@ -735,8 +738,8 @@ struct get_enum_type_id<{name}>{{
 )file";
 
 	return variable_formatter(format)
-		<< "name" << this->name
-		<< "underlying_type" << this->underlying_type->output()
+		<< "name" << this->get_source_name()
+		<< "underlying_type" << this->underlying_type->get_source_name()
 		<< "members" << this->generate_members()
 		<< "id" << this->id;
 }
@@ -815,7 +818,7 @@ CppVersion CppFile::minimum_cpp_version() const{
 	return ret;
 }
 
-std::string UserInclude::output() const{
+std::string UserInclude::generate_header() const{
 	return "#include "s + (this->relative ? '"' : '<') + this->include + (this->relative ? '"' : '>');
 }
 
@@ -940,7 +943,7 @@ struct static_get_type_id<{type}>{{
 	std::string ret;
 	for (auto &[id, type] : this->type_map){
 		ret += variable_formatter(pattern2)
-			<< "type" << type->output()
+			<< "type" << type->get_source_name()
 			<< "value" << type->get_type_id();
 	}
 
@@ -980,14 +983,6 @@ void CppFile::generate_source(){
 	}
 }
 
-void CppFile::generate_aux(){
-	this->assign_type_ids();
-
-	std::ofstream file((this->get_name() + ".aux.generated.cpp").c_str());
-
-	
-}
-
 std::string CppFile::generate_sizes(){
 	std::stringstream ret;
 	for (auto &kv : this->type_map){
@@ -995,7 +990,7 @@ std::string CppFile::generate_sizes(){
 			ret << "0, ";
 			continue;
 		}
-		ret << "sizeof(" << kv.second->output() << "), ";
+		ret << "sizeof(" << kv.second->get_source_name() << "), ";
 	}
 
 	return ret.str();
@@ -1122,60 +1117,6 @@ bool {name}(std::uint32_t type){{
 	;
 }
 
-#if 0
-void CppFile::generate_cast_offsets(std::ostream &stream){
-	std::vector<std::pair<std::uint32_t, std::uint32_t>> valid_casts;
-	for (auto &kv1 : this->type_map){
-		if (!kv1.second->is_serializable())
-			continue;
-		auto uc1 = static_cast<UserClass *>(kv1.second);
-		for (auto &kv2 : this->type_map){
-			if (!kv2.second->is_serializable())
-				continue;
-			auto uc2 = static_cast<UserClass *>(kv2.second);
-			if (uc1->is_subclass_of(*uc2))
-				valid_casts.push_back(std::make_pair(kv1.first, kv2.first));
-		}
-	}
-	std::sort(valid_casts.begin(), valid_casts.end());
-
-
-	const char *format =
-		"std::vector<std::tuple<std::uint32_t, std::uint32_t, int>> {function_name}(){{\n"
-		"const auto k = std::numeric_limits<intptr_t>::max() / 4;\n"
-		"std::vector<std::tuple<std::uint32_t, std::uint32_t, int>> ret;\n"
-		"ret.reserve({size});\n"
-		"{ret_init}"
-		"return ret;\n"
-		"}}\n";
-	variable_formatter vf(format);
-	std::stringstream temp;
-	for (auto &kv : valid_casts){
-		temp <<
-			"ret.push_back("
-			"std::make_tuple("
-			"(std::uint32_t)" << kv.first << ", "
-			"(std::uint32_t)" << kv.second << ", ";
-		if (kv.first != kv.second){
-			temp << "(int)((intptr_t)static_cast<";
-			this->type_map[kv.second]->output(temp);
-			temp << " *>((";
-			this->type_map[kv.first]->output(temp);
-			temp << " *)k) - k)";
-		}else
-			temp << "0";
-		temp << "));\n";
-	}
-
-	vf
-		<< "function_name" << get_cast_offsets_function_name()
-		<< "size" << valid_casts.size()
-		<< "ret_init" << temp.str();
-
-	stream << (std::string)vf;
-}
-#endif
-
 std::string CppFile::generate_dynamic_casts(){
 	std::stringstream stream;
 	for (auto &kv : this->type_map){
@@ -1183,7 +1124,7 @@ std::string CppFile::generate_dynamic_casts(){
 			stream << "nullptr,\n";
 			continue;
 		}
-		stream << "[](void *p){ return dynamic_cast<Serializable *>((" << kv.second->output() << " *)p); },\n";
+		stream << "[](void *p){ return dynamic_cast<Serializable *>((" << kv.second->get_source_name() << " *)p); },\n";
 	}
 	return stream.str();
 }
@@ -1359,6 +1300,14 @@ std::unique_ptr<GenericPointer> UniquePtr{name}::cast(std::uint32_t type){{
 	return ret;
 }
 
+std::string CppFile::generate_generic_pointer_classes_and_implementations(){
+	return
+		"namespace {\n" +
+		this->generate_generic_pointer_classes() + "\n" +
+		this->generate_generic_pointer_class_implementations() + "\n"
+		"}\n";
+}
+
 std::string CppFile::generate_allocator_cases(const char *format){
 	std::string ret;
 	for (auto &kv : this->type_map){
@@ -1527,7 +1476,7 @@ std::string CppFile::generate_enum_checkers(){
 		auto values = e->get_valid_values();
 
 		ret += variable_formatter(format)
-			<< "type" << e->get_underlying_type()->output()
+			<< "type" << e->get_underlying_type()->get_source_name()
 			<< "values" << to_list(values)
 			<< "length" << values.size();
 	}
@@ -1570,7 +1519,7 @@ bool {name}(std::uint32_t enum_type_id, const void *value){{
 std::string CppFile::generate_type_comments(){
 	std::stringstream ret;
 	for (auto &[id, type] : this->type_map)
-		ret << "// " << id << ": " << type->output() << std::endl;
+		ret << "// " << id << ": " << type->get_source_name() << std::endl;
 	return ret.str();
 }
 
@@ -1654,6 +1603,5 @@ void EvaluationResult::generate(){
 		random_function_name = 0;
 		cpp->generate_header();
 		cpp->generate_source();
-		cpp->generate_aux();
 	}
 }

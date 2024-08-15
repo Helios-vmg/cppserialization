@@ -170,6 +170,9 @@
     <ClCompile Include="test5_client.cpp" />
     <ClCompile Include="test5_server.cpp" />
     <ClCompile Include="test6.cpp" />
+    <ClCompile Include="test7.cpp" />
+    <ClCompile Include="test7_a.cpp" />
+    <ClCompile Include="test7_b.cpp" />
     <ClCompile Include="tests.cpp" />
     <ClCompile Include="util.cpp" />
   </ItemGroup>

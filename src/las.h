@@ -17,6 +17,7 @@
 
 #define SERIALIZER_VERSION 1
 
+class CppEvaluationState;
 extern std::mt19937_64 rng;
 class CppFile;
 
@@ -26,7 +27,6 @@ protected:
 public:
 	CppElement(CppFile &file): root(&file){}
 	virtual ~CppElement(){}
-	virtual std::string output() const = 0;
 	CppFile &get_root() const{
 		return *this->root;
 	}
@@ -36,9 +36,7 @@ public:
 	virtual std::string generate_forward_declaration() const{
 		return {};
 	}
-	virtual std::string generate_header() const{
-		return this->output();
-	}
+	virtual std::string generate_header() const = 0;
 };
 
 enum class CallMode{
@@ -57,7 +55,7 @@ enum class CppVersion{
 	Cpp2020 = 202002,
 };
 
-class Type{
+class Type : public std::enable_shared_from_this<Type>{
 	std::uint32_t type_id;
 protected:
 	TypeHash type_hash;
@@ -71,9 +69,9 @@ protected:
 	}
 public:
 	virtual ~Type(){}
-	virtual std::string output() const = 0;
-	virtual std::string output(const std::string &name) const{
-		return this->output() + " " + name;
+	virtual std::string get_source_name() const = 0;
+	virtual std::string get_source_name(const std::string &name) const{
+		return this->get_source_name() + " " + name;
 	}
 	virtual const char *header() const{
 		return nullptr;
@@ -98,14 +96,14 @@ public:
 	std::uint32_t get_type_id() const{
 		return this->type_id;
 	}
-	virtual std::string get_type_string() const = 0;
+	virtual std::string get_serializer_name() const = 0;
 	virtual std::string base_get_type_string() const{
-		return this->get_type_string();
+		return this->get_serializer_name();
 	}
 	virtual const TypeHash &get_type_hash(){
 		if (!this->type_hash){
 			std::stringstream stream;
-			stream << "version" << SERIALIZER_VERSION << this->get_type_string();
+			stream << "version" << SERIALIZER_VERSION << this->get_serializer_name();
 			this->type_hash = TypeHash(stream.str());
 		}
 		return this->type_hash;
@@ -150,23 +148,23 @@ public:
 		return CppVersion::Cpp2011;
 	}
 	virtual std::string fully_qualified_name() const{
-		return this->output();
+		return this->get_source_name();
 	}
 	virtual bool check_value(const EasySignedBigNum &value){
 		return false;
 	}
-	virtual std::shared_ptr<Type> get_underlying_type() const{
-		return {};
+	virtual std::shared_ptr<Type> get_underlying_type(){
+		return this->shared_from_this();
 	}
 };
 
 class BoolType : public Type{
 public:
-	using Type::output;
-	std::string output() const override{
+	using Type::get_source_name;
+	std::string get_source_name() const override{
 		return "bool";
 	}
-	std::string get_type_string() const override{
+	std::string get_serializer_name() const override{
 		return "b";
 	}
 };
@@ -207,12 +205,12 @@ public:
 	static std::shared_ptr<IntegerType> int64_t(){
 		return creator_helper(7);
 	}
-	using Type::output;
-	std::string output() const override;
+	using Type::get_source_name;
+	std::string get_source_name() const override;
 	const char *header() const override{
 		return "<cstdint>";
 	}
-	std::string get_type_string() const override;
+	std::string get_serializer_name() const override;
 	bool check_value(const EasySignedBigNum &value) override;
 };
 
@@ -229,11 +227,11 @@ public:
 	FloatingPointPrecision get_precision() const{
 		return this->precision;
 	}
-	using Type::output;
-	std::string output() const override{
-		return this->get_type_string();
+	using Type::get_source_name;
+	std::string get_source_name() const override{
+		return this->get_serializer_name();
 	}
-	std::string get_type_string() const override;
+	std::string get_serializer_name() const override;
 };
 
 enum class CharacterWidth{
@@ -245,12 +243,12 @@ class StringType : public Type{
 	CharacterWidth width;
 public:
 	StringType(CharacterWidth width): width(width){}
-	using Type::output;
-	std::string output() const override;
+	using Type::get_source_name;
+	std::string get_source_name() const override;
 	const char *header() const override{
 		return "<string>";
 	}
-	std::string get_type_string() const override{
+	std::string get_serializer_name() const override{
 		const char *s;
 		switch (this->width) {
 			case CharacterWidth::Narrow:
@@ -268,10 +266,10 @@ public:
 
 class DatetimeTime : public Type{
 public:
-	std::string output() const override{
+	std::string get_source_name() const override{
 		return "boost::datetime";
 	}
-	std::string get_type_string() const override{
+	std::string get_serializer_name() const override{
 		return "datetime";
 	}
 };
@@ -303,9 +301,9 @@ class ArrayType : public NestedType{
 	EasyBigNum length;
 public:
 	ArrayType(const std::shared_ptr<Type> &inner, const EasySignedBigNum &n);
-	std::string output() const override;
+	std::string get_source_name() const override;
 	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
-	std::string get_type_string() const override;
+	std::string get_serializer_name() const override;
 	void generate_deserializer(std::ostream &stream, const char *deserializer_name, const char *pointer_name) const override;
 	const char *header() const override{
 		return "<array>";
@@ -315,12 +313,12 @@ public:
 class PointerType : public NestedType{
 public:
 	PointerType(const std::shared_ptr<Type> &inner): NestedType(inner){}
-	std::string output() const override{
-		return this->inner->output() + " *";
+	std::string get_source_name() const override{
+		return this->inner->get_source_name() + " *";
 	}
 	void generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const override;
-	std::string get_type_string() const override{
-		return this->inner->get_type_string() + "*";
+	std::string get_serializer_name() const override{
+		return this->inner->get_serializer_name() + "*";
 	}
 	virtual bool is_pointer_type() const override{
 		return true;
@@ -342,22 +340,22 @@ public:
 class SharedPtrType : public StdSmartPtrType{
 public:
 	SharedPtrType(const std::shared_ptr<Type> &inner): StdSmartPtrType(inner){}
-	std::string output() const override{
-		return "std::shared_ptr<" + this->inner->output() + ">";
+	std::string get_source_name() const override{
+		return "std::shared_ptr<" + this->inner->get_source_name() + ">";
 	}
-	std::string get_type_string() const override{
-		return "shared_ptr<" + this->inner->get_type_string() + ">";
+	std::string get_serializer_name() const override{
+		return "shared_ptr<" + this->inner->get_serializer_name() + ">";
 	}
 };
 
 class UniquePtrType : public StdSmartPtrType{
 public:
 	UniquePtrType(const std::shared_ptr<Type> &inner): StdSmartPtrType(inner){}
-	std::string output() const override{
-		return "std::unique_ptr<" + this->inner->output() + ">";
+	std::string get_source_name() const override{
+		return "std::unique_ptr<" + this->inner->get_source_name() + ">";
 	}
-	std::string get_type_string() const override{
-		return "unique_ptr<" + this->inner->get_type_string() + ">";
+	std::string get_serializer_name() const override{
+		return "unique_ptr<" + this->inner->get_serializer_name() + ">";
 	}
 };
 
@@ -370,70 +368,70 @@ public:
 class VectorType : public SequenceType{
 public:
 	VectorType(const std::shared_ptr<Type> &inner): SequenceType(inner){}
-	std::string output() const override{
-		return "std::vector<" + this->inner->output() + ">";
+	std::string get_source_name() const override{
+		return "std::vector<" + this->inner->get_source_name() + ">";
 	}
 	const char *header() const override{
 		return "<vector>";
 	}
-	std::string get_type_string() const override{
-		return "vector<" + this->inner->get_type_string() + ">";
+	std::string get_serializer_name() const override{
+		return "vector<" + this->inner->get_serializer_name() + ">";
 	}
 };
 
 class ListType : public SequenceType{
 public:
 	ListType(const std::shared_ptr<Type> &inner): SequenceType(inner){}
-	std::string output() const override{
-		return "std::list<" + this->inner->output() + ">";
+	std::string get_source_name() const override{
+		return "std::list<" + this->inner->get_source_name() + ">";
 	}
 	const char *header() const override{
 		return "<list>";
 	}
-	std::string get_type_string() const override{
-		return "list<" + this->inner->get_type_string() + ">";
+	std::string get_serializer_name() const override{
+		return "list<" + this->inner->get_serializer_name() + ">";
 	}
 };
 
 class SetType : public SequenceType{
 public:
 	SetType(const std::shared_ptr<Type> &inner): SequenceType(inner){}
-	std::string output() const override{
-		return "std::set<" + this->inner->output() + ">";
+	std::string get_source_name() const override{
+		return "std::set<" + this->inner->get_source_name() + ">";
 	}
 	const char *header() const override{
 		return "<set>";
 	}
-	std::string get_type_string() const override{
-		return "set<" + this->inner->get_type_string() + ">";
+	std::string get_serializer_name() const override{
+		return "set<" + this->inner->get_serializer_name() + ">";
 	}
 };
 
 class HashSetType : public SequenceType{
 public:
 	HashSetType(const std::shared_ptr<Type> &inner): SequenceType(inner){}
-	std::string output() const override{
-		return "std::unordered_set<" + this->inner->output() + ">";
+	std::string get_source_name() const override{
+		return "std::unordered_set<" + this->inner->get_source_name() + ">";
 	}
 	const char *header() const override{
 		return "<unordered_set>";
 	}
-	std::string get_type_string() const override{
-		return "unordered_set<" + this->inner->get_type_string() + ">";
+	std::string get_serializer_name() const override{
+		return "unordered_set<" + this->inner->get_serializer_name() + ">";
 	}
 };
 
 class OptionalType : public NestedType{
 public:
 	OptionalType(const std::shared_ptr<Type> &inner): NestedType(inner){}
-	std::string output() const override{
-		return "std::optional<" + this->inner->output() + ">";
+	std::string get_source_name() const override{
+		return "std::optional<" + this->inner->get_source_name() + ">";
 	}
 	const char *header() const override{
 		return "<optional>";
 	}
-	std::string get_type_string() const override{
-		return "optional<" + this->inner->get_type_string() + ">";
+	std::string get_serializer_name() const override{
+		return "optional<" + this->inner->get_serializer_name() + ">";
 	}
 	CppVersion minimum_cpp_version() const override{
 		return CppVersion::Cpp2017;
@@ -473,14 +471,14 @@ class MapType : public AssociativeArrayType{
 public:
 	MapType(const std::shared_ptr<Type> &first, const std::shared_ptr<Type> &second):
 		AssociativeArrayType(first, second){}
-	std::string output() const override{
-		return "std::map<" + this->first->output() + ", " + this->second->output() + ">";
+	std::string get_source_name() const override{
+		return "std::map<" + this->first->get_source_name() + ", " + this->second->get_source_name() + ">";
 	}
 	const char *header() const override{
 		return "<map>";
 	}
-	std::string get_type_string() const override{
-		return "map<" + this->first->get_type_string() + "," + this->second->get_type_string() + ">";
+	std::string get_serializer_name() const override{
+		return "map<" + this->first->get_serializer_name() + "," + this->second->get_serializer_name() + ">";
 	}
 };
 
@@ -488,14 +486,14 @@ class HashMapType : public AssociativeArrayType{
 public:
 	HashMapType(const std::shared_ptr<Type> &first, const std::shared_ptr<Type> &second):
 		AssociativeArrayType(first, second){}
-	std::string output() const override{
-		return "std::unordered_map<" + this->first->output() + ", " + this->second->output() + ">";
+	std::string get_source_name() const override{
+		return "std::unordered_map<" + this->first->get_source_name() + ", " + this->second->get_source_name() + ">";
 	}
 	const char *header() const override{
 		return "<unordered_map>";
 	}
-	std::string get_type_string() const override{
-		return "unordered_map<" + this->first->get_type_string() + "," + this->second->get_type_string() + ">";
+	std::string get_serializer_name() const override{
+		return "unordered_map<" + this->first->get_serializer_name() + "," + this->second->get_serializer_name() + ">";
 	}
 };
 
@@ -508,7 +506,7 @@ public:
 		name(name){}
 	virtual ~Object(){}
 	virtual std::string output() const{
-		return this->type->output(this->name);
+		return this->type->get_source_name(this->name);
 	}
 	virtual void add_headers(std::set<std::string> &set){
 		this->type->add_headers(set);
@@ -598,10 +596,10 @@ protected:
 public:
 	UserType(CppFile &file, std::string name, std::vector<std::string> _namespace);
 	virtual ~UserType(){}
-	std::string get_type_string() const override{
+	std::string get_serializer_name() const override{
 		return this->name;
 	}
-	std::string output() const override{
+	std::string get_source_name() const override{
 		return this->generate_namespace() + this->name;
 	}
 	const std::string &get_name() const{
@@ -691,23 +689,22 @@ public:
 };
 
 class UserEnum : public UserType{
-	static inline std::uint32_t next_id = 1;
-	std::uint32_t id = next_id++;
+	std::uint32_t id;
 	std::shared_ptr<Type> underlying_type;
 	std::map<std::string, EasySignedBigNum> members_by_name;
 	std::map<EasySignedBigNum, std::string> members_by_value;
 
 	std::string generate_members() const;
 public:
-	UserEnum(CppFile &file, std::string name, std::vector<std::string> _namespace, std::shared_ptr<Type> underlying_type);
+	UserEnum(CppEvaluationState &, std::string name, std::vector<std::string> _namespace, std::shared_ptr<Type> underlying_type);
 	std::string base_get_type_string() const override;
-	std::string get_type_string() const override{
+	std::string get_serializer_name() const override{
 		return this->name;
 	}
 	void set(std::string name, EasySignedBigNum value);
 	std::string generate_forward_declaration() const override;
 	std::string generate_header() const override;
-	std::shared_ptr<Type> get_underlying_type() const override{
+	std::shared_ptr<Type> get_underlying_type() override{
 		return this->underlying_type;
 	}
 	std::uint32_t get_id() const{
@@ -719,8 +716,8 @@ public:
 class CppFile{
 	std::string name;
 	std::vector<std::shared_ptr<CppElement>> elements;
-	std::unordered_map<std::string, std::shared_ptr<UserClass> > classes;
-	std::unordered_map<std::string, std::shared_ptr<UserEnum> > enums;
+	std::unordered_map<std::string, std::shared_ptr<UserClass>> classes;
+	std::unordered_map<std::string, std::shared_ptr<UserEnum>> enums;
 	std::vector<std::pair<std::string, std::string>> type_mappings;
 	typedef std::map<unsigned, Type *> type_map_t;
 	type_map_t type_map;
@@ -742,7 +739,6 @@ class CppFile{
 	std::string generate_type_map();
 	std::string get_id_hashes_name();
 	std::string generate_enum_checkers();
-
 	std::string generate_source1();
 	std::string generate_static_get_type_id();
 public:
@@ -765,22 +761,14 @@ public:
 	}
 	void generate_header();
 	void generate_source();
-	void generate_aux();
 	std::string generate_allocator();
 	std::string generate_constructor();
 	std::string generate_rollbacker();
 	std::string generate_is_serializable();
-	//void generate_cast_offsets(std::ostream &);
 	std::string generate_dynamic_cast();
 	std::string generate_generic_pointer_classes();
 	std::string generate_generic_pointer_class_implementations();
-	std::string generate_generic_pointer_classes_and_implementations(){
-		return
-			"namespace {\n" +
-			this->generate_generic_pointer_classes() + "\n" +
-			this->generate_generic_pointer_class_implementations() + "\n"
-			"}\n";
-	}
+	std::string generate_generic_pointer_classes_and_implementations();
 	std::string generate_pointer_allocator();
 	std::string generate_cast_categorizer();
 	std::string generate_enum_checker();
@@ -790,13 +778,10 @@ public:
 	CppVersion minimum_cpp_version() const;
 };
 
-class UserInclude : public CppElement, public ClassElement{
+class UserInclude : public CppElement{
 	std::string include;
 	bool relative;
 public:
 	UserInclude(CppFile &file, const std::string &include, bool relative): CppElement(file), include(include), relative(relative){}
-	std::string output() const override;
-	bool needs_semicolon() const override{
-		return false;
-	}
+	std::string generate_header() const override;
 };

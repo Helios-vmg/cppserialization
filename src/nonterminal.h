@@ -29,6 +29,7 @@ public:
 	std::vector<std::pair<std::shared_ptr<TypeDeclarationNonTerminal>, std::shared_ptr<CppElement>>> declarations;
 	std::shared_ptr<CppFile> result;
 	std::vector<std::string> current_namespace;
+	std::uint32_t next_enum_id = 1;
 
 	CppEvaluationState(EvaluationResult &);
 };
