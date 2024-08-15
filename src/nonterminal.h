@@ -253,7 +253,6 @@ public:
 	virtual ~TopLevelDeclarationNonTerminal() = 0;
 	virtual void forward_declare(EvaluationResult &) const{}
 	virtual void update(EvaluationResult &) const{}
-	virtual void patch_include_decls(const std::map<std::string, std::shared_ptr<DeclNonTerminal>> &){}
 };
 
 class CppNonTerminal : public TopLevelDeclarationNonTerminal{
@@ -265,7 +264,6 @@ class CppNonTerminal : public TopLevelDeclarationNonTerminal{
 public:
 	CppNonTerminal(std::deque<std::shared_ptr<Token>> &input);
 	void update(EvaluationResult &) const override;
-	void patch_include_decls(const std::map<std::string, std::shared_ptr<DeclNonTerminal>> &) override;
 };
 
 class DeclNonTerminal : public TopLevelDeclarationNonTerminal{
@@ -316,5 +314,4 @@ class FileNonTerminal{
 public:
 	FileNonTerminal(std::deque<std::shared_ptr<Token>> &input);
 	EvaluationResult evaluate_ast() const;
-	void patch_include_decls();
 };

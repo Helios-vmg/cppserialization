@@ -38,7 +38,6 @@ int main(int argc, char **argv){
 		{
 			auto input = tokenize(read_file(argv[1]));
 			FileNonTerminal file(input);
-			//file.patch_include_decls();
 			r = file.evaluate_ast();
 		}
 		r.generate();

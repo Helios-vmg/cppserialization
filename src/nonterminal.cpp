@@ -517,22 +517,6 @@ EvaluationResult FileNonTerminal::evaluate_ast() const{
 	return ret;
 }
 
-void FileNonTerminal::patch_include_decls(){
-	std::map<std::string, std::shared_ptr<DeclNonTerminal>> decls;
-	for (auto &tld : this->declarations){
-		auto d = std::dynamic_pointer_cast<DeclNonTerminal>(tld);
-		if (!d)
-			continue;
-		auto name = d->get_name();
-		auto it = decls.find(name);
-		if (it != decls.end())
-			throw std::runtime_error("duplicate declaration: " + name);
-		decls[std::move(name)] = std::move(d);
-	}
-	for (auto &tld : this->declarations)
-		tld->patch_include_decls(decls);
-}
-
 std::shared_ptr<CppFile> CppNonTerminal::evaluate_ast(EvaluationResult &er) const{
 	CppEvaluationState state(er);
 	state.result = std::make_shared<CppFile>(this->name->get_name());
@@ -629,30 +613,6 @@ void NamespaceDeclNonTerminal::update(CppEvaluationState &state){
 std::pair<std::shared_ptr<CppElement>, std::shared_ptr<Type>> ClassNonTerminal::generate_element_and_type(CppEvaluationState &state) const{
 	auto t = std::make_shared<UserClass>(*state.result, this->name->get_name(), state.current_namespace, this->abstract);
 	return { t, t };
-}
-
-void CppNonTerminal::patch_include_decls(const std::map<std::string, std::shared_ptr<DeclNonTerminal>> &decls){
-	std::unordered_set<std::string> types;
-	for (auto &d : this->declarations){
-		auto type = std::dynamic_pointer_cast<TypeDeclarationNonTerminal>(d);
-		if (!type)
-			continue;
-		auto name = type->get_name();
-		auto it = types.find(name);
-		if (it != types.end())
-			throw std::runtime_error("duplicate type declaration " + name + " in cpp " + this->name->get_name());
-		types.insert(name);
-	}
-	for (auto &d : this->declarations){
-		auto include = std::dynamic_pointer_cast<IncludeDeclNonTerminal>(d);
-		if (!include)
-			continue;
-		auto name = include->get_target_name();
-		auto it = decls.find(name);
-		if (it == decls.end())
-			throw std::runtime_error("missing declaration: " + name);
-		this->insert(types, *it->second);
-	}
 }
 
 void CppNonTerminal::insert(std::unordered_set<std::string> &types, const DeclNonTerminal &include){
