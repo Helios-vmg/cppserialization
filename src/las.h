@@ -742,6 +742,9 @@ class CppFile{
 	std::string generate_type_map();
 	std::string get_id_hashes_name();
 	std::string generate_enum_checkers();
+
+	std::string generate_source1();
+	std::string generate_static_get_type_id();
 public:
 	CppFile(const std::string &name): name(name){}
 	void add_element(const std::shared_ptr<CppElement> &element){
@@ -763,25 +766,25 @@ public:
 	void generate_header();
 	void generate_source();
 	void generate_aux();
-	void generate_allocator(std::ostream &);
-	void generate_constructor(std::ostream &);
-	void generate_rollbacker(std::ostream &);
-	void generate_is_serializable(std::ostream &);
+	std::string generate_allocator();
+	std::string generate_constructor();
+	std::string generate_rollbacker();
+	std::string generate_is_serializable();
 	//void generate_cast_offsets(std::ostream &);
-	void generate_dynamic_cast(std::ostream &);
-	void generate_generic_pointer_classes(std::ostream &);
-	void generate_generic_pointer_class_implementations(std::ostream &);
-	void generate_generic_pointer_classes_and_implementations(std::ostream &file){
-		file << "namespace {\n";
-		this->generate_generic_pointer_classes(file);
-		file << std::endl;
-		this->generate_generic_pointer_class_implementations(file);
-		file << "\n}\n";
+	std::string generate_dynamic_cast();
+	std::string generate_generic_pointer_classes();
+	std::string generate_generic_pointer_class_implementations();
+	std::string generate_generic_pointer_classes_and_implementations(){
+		return
+			"namespace {\n" +
+			this->generate_generic_pointer_classes() + "\n" +
+			this->generate_generic_pointer_class_implementations() + "\n"
+			"}\n";
 	}
-	void generate_pointer_allocator(std::ostream &);
-	void generate_cast_categorizer(std::ostream &);
-	void generate_enum_checker(std::ostream &);
-	void generate_get_metadata(std::ostream &);
+	std::string generate_pointer_allocator();
+	std::string generate_cast_categorizer();
+	std::string generate_enum_checker();
+	std::string generate_get_metadata();
 	std::uint32_t assign_type_ids();
 	void mark_virtual_inheritances();
 	CppVersion minimum_cpp_version() const;

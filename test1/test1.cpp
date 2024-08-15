@@ -1,6 +1,5 @@
 #include "test1.generated.h"
 #include "test1.generated.cpp"
-#include "test1.aux.generated.cpp"
 #include "gen.h"
 #include "util.h"
 #include <chrono>

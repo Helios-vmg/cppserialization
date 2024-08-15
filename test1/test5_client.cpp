@@ -1,6 +1,5 @@
 #include "test5_client.generated.h"
 #include "test5_client.generated.cpp"
-#include "test5_client.aux.generated.cpp"
 #include <sstream>
 
 namespace client::responses{

@@ -1,6 +1,5 @@
 #include "test2.generated.h"
 #include "test2.generated.cpp"
-#include "test2.aux.generated.cpp"
 #include "util.h"
 
 using namespace test2_types;

@@ -1,6 +1,5 @@
 #include "test4.generated.h"
 #include "test4.generated.cpp"
-#include "test4.aux.generated.cpp"
 #include "util.h"
 
 void test4(std::uint32_t){

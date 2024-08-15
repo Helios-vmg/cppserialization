@@ -902,25 +902,32 @@ std::string generate_get_metadata_signature(){
 	return "std::shared_ptr<SerializableMetadata> " + get_get_metadata_function_name() + "()";
 }
 
-void CppFile::generate_source(){
-	this->assign_type_ids();
-
-	std::ofstream file((this->get_name() + ".generated.cpp").c_str());
-	{
-		static const char * const pattern =
+std::string CppFile::generate_source1(){
+	static const char * const pattern =
 R"file(
+#include "Serializable.h"
 #include "{name}.generated.h"
 #include <utility>
+#include <cstdint>
+#include <memory>
+#include <algorithm>
 
-extern std::pair<std::uint32_t, TypeHash> {name}_id_hashes[];
+{type_comments}
 
-{signature};
+std::pair<std::uint32_t, TypeHash> {array_name}[] = {{
+{type_map}
+}};
 
 )file";
-		std::string s = variable_formatter(pattern) << "name" << this->name << "signature" << generate_get_metadata_signature();
-		file << s;
-	}
+	return variable_formatter(pattern)
+		<< "name" << this->name
+		<< "array_name" << this->get_id_hashes_name()
+		<< "type_comments" << this->generate_type_comments()
+		<< "type_map" << this->generate_type_map()
+	;
+}
 
+std::string CppFile::generate_static_get_type_id(){
 	static const char * const pattern2 =
 R"file(
 template <>
@@ -929,12 +936,40 @@ struct static_get_type_id<{type}>{{
 }};
 
 )file";
+
+	std::string ret;
 	for (auto &[id, type] : this->type_map){
-		std::string s = variable_formatter(pattern2)
+		ret += variable_formatter(pattern2)
 			<< "type" << type->output()
 			<< "value" << type->get_type_id();
-		file << s;
 	}
+
+	return ret;
+}
+
+void CppFile::generate_source(){
+	this->assign_type_ids();
+
+	std::ofstream file((this->get_name() + ".generated.cpp").c_str());
+
+	typedef std::string (CppFile::*generator_f)();
+	static const generator_f generators[] = {
+		&CppFile::generate_source1,
+		&CppFile::generate_static_get_type_id,
+		&CppFile::generate_allocator,
+		&CppFile::generate_constructor,
+		&CppFile::generate_rollbacker,
+		&CppFile::generate_is_serializable,
+		&CppFile::generate_dynamic_cast,
+		&CppFile::generate_generic_pointer_classes_and_implementations,
+		&CppFile::generate_pointer_allocator,
+		&CppFile::generate_cast_categorizer,
+		&CppFile::generate_enum_checker,
+		&CppFile::generate_get_metadata,
+	};
+
+	for (auto f : generators)
+		file << (this->*f)() << std::endl;
 
 	for (auto &e : this->elements){
 		auto Class = std::dynamic_pointer_cast<UserClass>(e);
@@ -943,6 +978,14 @@ struct static_get_type_id<{type}>{{
 		Class->generate_source(file);
 		file << std::endl;
 	}
+}
+
+void CppFile::generate_aux(){
+	this->assign_type_ids();
+
+	std::ofstream file((this->get_name() + ".aux.generated.cpp").c_str());
+
+	
 }
 
 std::string CppFile::generate_sizes(){
@@ -958,7 +1001,7 @@ std::string CppFile::generate_sizes(){
 	return ret.str();
 }
 
-void CppFile::generate_allocator(std::ostream &stream){
+std::string CppFile::generate_allocator(){
 	static const char * const pattern =
 R"file(
 void *{name}(std::uint32_t type){{
@@ -972,8 +1015,7 @@ void *{name}(std::uint32_t type){{
 }}
 )file";
 
-	std::string s = variable_formatter(pattern) << "name" << get_allocator_function_name() << "sizes" << this->generate_sizes();
-	stream << s;
+	return variable_formatter(pattern) << "name" << get_allocator_function_name() << "sizes" << this->generate_sizes();
 }
 
 std::string CppFile::generate_deserializers(){
@@ -990,8 +1032,8 @@ std::string CppFile::generate_deserializers(){
 	return stream.str();
 }
 
-void CppFile::generate_constructor(std::ostream &stream){
-	static const char * const pattern =
+std::string CppFile::generate_constructor(){
+	static const char * const format =
 R"file(
 void {name}(std::uint32_t type, void *s, DeserializerStream &ds){{
 	typedef void (*constructor_f)(void *, DeserializerStream &);
@@ -1004,10 +1046,10 @@ void {name}(std::uint32_t type, void *s, DeserializerStream &ds){{
 	return constructors[type](s, ds);
 }}
 )file";
-	std::string s = variable_formatter(pattern)
+	return variable_formatter(format)
 		<< "name" << get_constructor_function_name()
-		<< "constructors" << this->generate_deserializers();
-	stream << s;
+		<< "constructors" << this->generate_deserializers()
+	;
 }
 
 std::string CppFile::generate_rollbackers(){
@@ -1024,8 +1066,8 @@ std::string CppFile::generate_rollbackers(){
 	return stream.str();
 }
 
-void CppFile::generate_rollbacker(std::ostream &stream){
-	static const char * const pattern =
+std::string CppFile::generate_rollbacker(){
+	static const char * const format =
 R"file(
 void {name}(std::uint32_t type, void *s){{
 	typedef void (*rollbacker_f)(void *);
@@ -1038,13 +1080,13 @@ void {name}(std::uint32_t type, void *s){{
 	return rollbackers[type](s);
 }}
 )file";
-	std::string s = variable_formatter(pattern)
+	return variable_formatter(format)
 		<< "name" << get_rollbacker_function_name()
-		<< "rollbackers" << this->generate_rollbackers();
-	stream << s;
+		<< "rollbackers" << this->generate_rollbackers()
+	;
 }
 
-void CppFile::generate_is_serializable(std::ostream &stream){
+std::string CppFile::generate_is_serializable(){
 	std::vector<std::uint32_t> flags;
 	int bit = 0;
 	int i = 0;
@@ -1074,11 +1116,10 @@ bool {name}(std::uint32_t type){{
 	for (auto u : flags)
 		temp << "0x" << std::hex << std::setw(8) << std::setfill('0') << (int)u << ", ";
 
-	std::string s = variable_formatter(format)
+	return variable_formatter(format)
 		<< "name" << get_is_serializable_function_name()
-		<< "array" << temp.str();
-	
-	stream << s;
+		<< "array" << temp.str()
+	;
 }
 
 #if 0
@@ -1147,7 +1188,7 @@ std::string CppFile::generate_dynamic_casts(){
 	return stream.str();
 }
 
-void CppFile::generate_dynamic_cast(std::ostream &stream){
+std::string CppFile::generate_dynamic_cast(){
 	static const char * const format =
 R"file(
 Serializable *{name}(void *src, std::uint32_t type){{
@@ -1161,13 +1202,13 @@ Serializable *{name}(void *src, std::uint32_t type){{
 	return casts[type](src);
 }}
 )file";
-	std::string s = variable_formatter(format)
+	return variable_formatter(format)
 		<< "name" << get_dynamic_cast_function_name()
-		<< "casts" << this->generate_dynamic_casts();
-	stream << s;
+		<< "casts" << this->generate_dynamic_casts()
+	;
 }
 
-void CppFile::generate_generic_pointer_classes(std::ostream &stream){
+std::string CppFile::generate_generic_pointer_classes(){
 	static const char * const format =
 R"file(
 class RawPointer{name} : public GenericPointer{{
@@ -1215,16 +1256,19 @@ public:
     std::unique_ptr<GenericPointer> cast(std::uint32_t type) override;
 }};
 )file";
+
+	std::string ret;
 	for (auto &kv1 : this->type_map){
 		if (!kv1.second->is_serializable())
 			continue;
 		auto uc1 = static_cast<UserClass *>(kv1.second);
 
-		std::string s = variable_formatter(format)
+		ret += variable_formatter(format)
 			<< "name" << uc1->get_name()
-			<< "fqn" << uc1->fully_qualified_name();
-		stream << s;
+			<< "fqn" << uc1->fully_qualified_name()
+		;
 	}
+	return ret;
 }
 
 std::string CppFile::generate_cast_cases(UserClass &uc1, const char *format){
@@ -1269,7 +1313,7 @@ R"file(
 	return this->generate_cast_cases(uc1, format);
 }
 
-void CppFile::generate_generic_pointer_class_implementations(std::ostream &stream){
+std::string CppFile::generate_generic_pointer_class_implementations(){
 	static const char * const format =
 R"file(
 std::unique_ptr<GenericPointer> RawPointer{name}::cast(std::uint32_t type){{
@@ -1296,20 +1340,23 @@ std::unique_ptr<GenericPointer> UniquePtr{name}::cast(std::uint32_t type){{
 	}}
 }}
 )file";
+
+	std::string ret;
 	for (auto &kv1 : this->type_map){
 		if (!kv1.second->is_serializable())
 			continue;
 		auto uc1 = static_cast<UserClass *>(kv1.second);
 		auto name = uc1->get_name();
 
-		std::string s = variable_formatter(format)
+		ret += variable_formatter(format)
 			<< "name" << name
 			<< "switch_cases_RawPointer" << this->generate_raw_pointer_cast_cases(*uc1)
 			<< "switch_cases_SharedPtr" << this->generate_shared_ptr_cast_cases(*uc1)
 			<< "switch_cases_UniquePtr" << this->generate_unique_ptr_cast_cases(*uc1)
 		;
-		stream << s;
 	}
+
+	return ret;
 }
 
 std::string CppFile::generate_allocator_cases(const char *format){
@@ -1351,7 +1398,7 @@ R"file(
 	return this->generate_allocator_cases(format);
 }
 
-void CppFile::generate_pointer_allocator(std::ostream &stream){
+std::string CppFile::generate_pointer_allocator(){
 	static const char * const format =
 R"file(
 std::unique_ptr<GenericPointer> {name}(std::uint32_t type, PointerType pointer_type, void *p){{
@@ -1383,13 +1430,12 @@ std::unique_ptr<GenericPointer> {name}(std::uint32_t type, PointerType pointer_t
 }}
 )file";
 
-	std::string s = variable_formatter(format)
+	return variable_formatter(format)
 		<< "name" << get_allocate_pointer_function_name()
 		<< "switch_cases_RawPointer" << this->generate_raw_pointer_allocator_cases()
 		<< "switch_cases_SharedPtr" << this->generate_shared_pointer_allocator_cases()
 		<< "switch_cases_UniquePtr" << this->generate_unique_ptr_allocator_cases()
 	;
-	stream << s;
 }
 
 std::string CppFile::generate_cast_categories(unsigned max_type){
@@ -1425,7 +1471,7 @@ std::string CppFile::generate_cast_categories(unsigned max_type){
 	return ret;
 }
 
-void CppFile::generate_cast_categorizer(std::ostream &stream){
+std::string CppFile::generate_cast_categorizer(){
 	static const char * const format =
 R"file(
 CastCategory {name}(std::uint32_t src_type, std::uint32_t dst_type){{
@@ -1446,11 +1492,11 @@ CastCategory {name}(std::uint32_t src_type, std::uint32_t dst_type){{
 	for (auto &kv : this->type_map)
 		max_type = std::max(max_type, kv.first);
 
-	std::string s = variable_formatter(format)
+	return variable_formatter(format)
 		<< "name" << get_categorize_cast_function_name()
 		<< "categories" << this->generate_cast_categories(max_type)
-		<< "max_type" << max_type;
-	stream << s;
+		<< "max_type" << max_type
+	;
 }
 
 std::string to_list(const std::vector<EasySignedBigNum> &values){
@@ -1489,7 +1535,7 @@ std::string CppFile::generate_enum_checkers(){
 	return ret;
 }
 
-void CppFile::generate_enum_checker(std::ostream &stream){
+std::string CppFile::generate_enum_checker(){
 	static const char *const empty = R"file(
 bool {name}(std::uint32_t enum_type_id, const void *value){{
 	return true;
@@ -1509,27 +1555,22 @@ bool {name}(std::uint32_t enum_type_id, const void *value){{
 }}
 )file";
 
-	std::string s;
-	if (this->enums.empty()){
-		s = variable_formatter(empty)
+	if (this->enums.empty())
+		return variable_formatter(empty)
 			<< "name" << get_check_enum_function_name()
 		;
-	}else{
-		auto checkers = this->generate_enum_checkers();
 
-		s = variable_formatter(format)
-			<< "name" << get_check_enum_function_name()
-			<< "checkers" << this->generate_enum_checkers()
-			<< "max_type" << this->enums.size()
-		;
-	}
-	stream << s;
+	return variable_formatter(format)
+		<< "name" << get_check_enum_function_name()
+		<< "checkers" << this->generate_enum_checkers()
+		<< "max_type" << this->enums.size()
+	;
 }
 
 std::string CppFile::generate_type_comments(){
 	std::stringstream ret;
 	for (auto &[id, type] : this->type_map)
-		ret << "// " << id << ": " << type << std::endl;
+		ret << "// " << id << ": " << type->output() << std::endl;
 	return ret.str();
 }
 
@@ -1552,7 +1593,7 @@ std::string CppFile::get_id_hashes_name(){
 	return this->get_name() + "_id_hashes";
 }
 
-void CppFile::generate_get_metadata(std::ostream &file){
+std::string CppFile::generate_get_metadata(){
 	static const char * const format2 = R"file(
 {get_metadata_signature}{{
 	std::shared_ptr<SerializableMetadata> ret(new SerializableMetadata);
@@ -1572,7 +1613,7 @@ void CppFile::generate_get_metadata(std::ostream &file){
 }}
 )file";
 
-	std::string s = variable_formatter(format2)
+	return variable_formatter(format2)
 		<< "get_metadata_signature" << generate_get_metadata_signature()
 		<< "allocator" << get_allocator_function_name()
 		<< "constructor" << get_constructor_function_name()
@@ -1582,56 +1623,8 @@ void CppFile::generate_get_metadata(std::ostream &file){
 		<< "allocate_pointer" << get_allocate_pointer_function_name()
 		<< "categorize_cast" << get_categorize_cast_function_name()
 		<< "check_enum" << get_check_enum_function_name()
-		<< "array_name" << this->get_id_hashes_name();
-	file << s;
-}
-
-void CppFile::generate_aux(){
-	this->assign_type_ids();
-
-	std::ofstream file((this->get_name() + ".aux.generated.cpp").c_str());
-
-	static const char * const format1 = R"file(
-#include "Serializable.h"
-#include "{name}.generated.h"
-#include <utility>
-#include <cstdint>
-#include <memory>
-#include <algorithm>
-
-{type_comments}
-
-std::pair<std::uint32_t, TypeHash> {array_name}[] = {{
-{type_map}
-}};
-
-)file";
-
-	file << (std::string)(variable_formatter(format1)
-		<< "name" << this->name
-		<< "type_comments" << this->generate_type_comments()
 		<< "array_name" << this->get_id_hashes_name()
-		<< "type_map" << this->generate_type_map()
-	);
-
-	typedef void (CppFile::*generator_f)(std::ostream &);
-	static const generator_f generators[] = {
-		&CppFile::generate_allocator,
-		&CppFile::generate_constructor,
-		&CppFile::generate_rollbacker,
-		&CppFile::generate_is_serializable,
-		&CppFile::generate_dynamic_cast,
-		&CppFile::generate_generic_pointer_classes_and_implementations,
-		&CppFile::generate_pointer_allocator,
-		&CppFile::generate_cast_categorizer,
-		&CppFile::generate_enum_checker,
-		&CppFile::generate_get_metadata,
-	};
-
-	for (auto f : generators){
-		(this->*f)(file);
-		file << std::endl;
-	}
+	;
 }
 
 void CppFile::mark_virtual_inheritances(){

@@ -13,7 +13,7 @@ std::string read_file(const char *path){
 		return ret;
 	ret.resize((size_t)file.tellg());
 	file.seekg(0);
-	file.read(&ret[0], ret.size());
+	file.read(ret.data(), ret.size());
 	return ret;
 }
 

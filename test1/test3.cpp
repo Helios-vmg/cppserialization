@@ -1,6 +1,5 @@
 #include "test3.generated.h"
 #include "test3.generated.cpp"
-#include "test3.aux.generated.cpp"
 #include "util.h"
 #include <random>
 
