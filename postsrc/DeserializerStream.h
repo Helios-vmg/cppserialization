@@ -222,7 +222,7 @@ private:
 public:
 	DeserializerStream(std::istream &);
 	virtual ~DeserializerStream(){}
-	virtual void report_error(ErrorType, const char * = 0) = 0;
+	virtual void report_error(ErrorType);
 	template <typename Target>
 	std::unique_ptr<Target> full_deserialization(bool includes_typehashes = false){
 		auto metadata = Target::static_get_metadata();
@@ -319,11 +319,19 @@ public:
 		static_assert(sizeof(u) == sizeof(T), "Hard-coded integer type doesn't match the size of requested float type!");
 		this->deserialize_fixed(*(u *)&x);
 	}
+	void deserialize(std::string &s){
+		wire_size_t size;
+		this->deserialize(size);
+		s.resize((size_t)size, (char)0);
+		this->stream->read(s.data(), s.size());
+		if (this->stream->gcount() != s.size())
+			this->report_error(ErrorType::UnexpectedEndOfFile);
+	}
 	template <typename T>
 	void deserialize(std::basic_string<T> &s){
 		wire_size_t size;
 		this->deserialize(size);
-		s.resize((size_t)size, (T)'0');
+		s.resize((size_t)size, (T)0);
 		for (size_t i = 0; i != (size_t)size; i++){
 			typename std::make_unsigned<T>::type c;
 			this->deserialize(c);
@@ -331,7 +339,18 @@ public:
 		}
 	}
 	template <typename T>
-	typename std::enable_if<is_simply_constructible<T>::value, void>::type deserialize(std::vector<T> &v){
+	std::enable_if_t<std::is_same_v<T, std::uint8_t> || std::is_same_v<T, std::int8_t>, void>
+	deserialize(std::vector<T> &s){
+		wire_size_t size;
+		this->deserialize(size);
+		s.resize((size_t)size, (char)0);
+		this->stream->read((char *)s.data(), s.size());
+		if (this->stream->gcount() != s.size())
+			this->report_error(ErrorType::UnexpectedEndOfFile);
+	}
+	template <typename T>
+	std::enable_if_t<is_simply_constructible<T>::value && !(std::is_same_v<T, std::uint8_t> || std::is_same_v<T, std::int8_t>), void>
+	deserialize(std::vector<T> &v){
 		v.clear();
 		wire_size_t size;
 		this->deserialize(size);
@@ -342,7 +361,8 @@ public:
 		}
 	}
 	template <typename T>
-	typename std::enable_if<is_serializable<T>::value, void>::type deserialize(std::vector<T> &v){
+	typename std::enable_if<is_serializable<T>::value, void>::type
+	deserialize(std::vector<T> &v){
 		v.clear();
 		wire_size_t size;
 		this->deserialize(size);
@@ -381,6 +401,20 @@ public:
 		if (!this->metadata->check_enum_value(get_enum_type_id<T>::value, &temp))
 			this->report_error(ErrorType::UnknownEnumValue);
 		t = (T)temp;
+	}
+};
+
+class DeserializationException : public std::exception{
+protected:
+	const char *message;
+	DeserializerStream::ErrorType type;
+public:
+	DeserializationException(DeserializerStream::ErrorType type);
+	const char *what() const noexcept override{
+		return this->message;
+	}
+	auto get_type() const{
+		return this->type;
 	}
 };
 

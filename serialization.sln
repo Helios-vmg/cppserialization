@@ -10,11 +10,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test1", "test1\test1.vcxpro
 		{886936B8-F314-4A7A-915A-C1138AF46B83} = {886936B8-F314-4A7A-915A-C1138AF46B83}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "random_graph", "random_graph\random_graph.vcxproj", "{C3F8A337-2212-4B0A-B4EF-12070E0A9066}"
-	ProjectSection(ProjectDependencies) = postProject
-		{886936B8-F314-4A7A-915A-C1138AF46B83} = {886936B8-F314-4A7A-915A-C1138AF46B83}
-	EndProjectSection
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -39,16 +34,11 @@ Global
 		{E7A84F5C-3F68-4EF9-9E24-AE88724D98F0}.Release|Win32.Build.0 = Release|Win32
 		{E7A84F5C-3F68-4EF9-9E24-AE88724D98F0}.Release|x64.ActiveCfg = Release|x64
 		{E7A84F5C-3F68-4EF9-9E24-AE88724D98F0}.Release|x64.Build.0 = Release|x64
-		{C3F8A337-2212-4B0A-B4EF-12070E0A9066}.Debug|Win32.ActiveCfg = Debug|Win32
-		{C3F8A337-2212-4B0A-B4EF-12070E0A9066}.Debug|Win32.Build.0 = Debug|Win32
-		{C3F8A337-2212-4B0A-B4EF-12070E0A9066}.Debug|x64.ActiveCfg = Debug|x64
-		{C3F8A337-2212-4B0A-B4EF-12070E0A9066}.Debug|x64.Build.0 = Debug|x64
-		{C3F8A337-2212-4B0A-B4EF-12070E0A9066}.Release|Win32.ActiveCfg = Release|Win32
-		{C3F8A337-2212-4B0A-B4EF-12070E0A9066}.Release|Win32.Build.0 = Release|Win32
-		{C3F8A337-2212-4B0A-B4EF-12070E0A9066}.Release|x64.ActiveCfg = Release|x64
-		{C3F8A337-2212-4B0A-B4EF-12070E0A9066}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F7CAE430-3E76-4385-95C3-5E93AD90252A}
 	EndGlobalSection
 EndGlobal

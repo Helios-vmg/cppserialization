@@ -37,7 +37,7 @@ void test4(std::uint32_t){
 	stream.seekg(0);
 	std::shared_ptr<inheritance_graph> g2;
 	{
-		ExampleDeserializerStream ds(stream);
+		DeserializerStream ds(stream);
 		g2 = ds.full_deserialization<inheritance_graph>(true);
 	}
 

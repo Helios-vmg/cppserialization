@@ -185,6 +185,10 @@ public:
 		u.floating = x;
 		this->serialize_fixed(u.integer);
 	}
+	void serialize(const std::string &s){
+		this->serialize((wire_size_t)s.size());
+		this->stream->write(s.data(), s.size());
+	}
 	template <typename T>
 	void serialize(const std::basic_string<T> &s){
 		this->serialize((wire_size_t)s.size());
@@ -206,7 +210,14 @@ public:
 		}
 	}
 	template <typename T>
-	void serialize(const std::vector<T> &v){
+	std::enable_if_t<std::is_same_v<T, std::uint8_t> || std::is_same_v<T, std::int8_t>, void>
+	serialize(const std::vector<T> &v){
+		this->serialize((wire_size_t)v.size());
+		this->stream->write((const char *)v.data(), v.size());
+	}
+	template <typename T>
+	std::enable_if_t<!(std::is_same_v<T, std::uint8_t> || std::is_same_v<T, std::int8_t>), void>
+	serialize(const std::vector<T> &v){
 		this->serialize_sequence(v.begin(), v.end(), v.size());
 	}
 	template <typename T>

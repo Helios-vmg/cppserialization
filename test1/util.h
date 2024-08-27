@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Serializable.h>
-#include <ExampleDeserializerStream.h>
+#include <DeserializerStream.h>
 #include <optional>
 #include <sstream>
 
@@ -26,7 +26,7 @@ template <typename T>
 std::enable_if_t<std::is_base_of_v<Serializable, T>, std::unique_ptr<T>>
 deserialize(const std::string &src){
 	std::stringstream temp(src);
-	ExampleDeserializerStream eds(temp);
+	DeserializerStream eds(temp);
 	return eds.full_deserialization<T>(true);
 }
 
