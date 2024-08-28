@@ -72,6 +72,9 @@
     <ClCompile Include="test7_b.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\postsrc\negotiator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gen.h">
@@ -87,6 +90,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="handler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\postsrc\negotiator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

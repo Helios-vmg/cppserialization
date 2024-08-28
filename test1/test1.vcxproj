@@ -161,6 +161,7 @@
     <ClCompile Include="$(ProjectDir)\testtype.cpp" />
     <ClCompile Include="$(SolutionDir)\postsrc\DeserializerStream.cpp" />
     <ClCompile Include="$(SolutionDir)\postsrc\Serializable.cpp" />
+    <ClCompile Include="..\postsrc\negotiator.cpp" />
     <ClCompile Include="gen.cpp" />
     <ClCompile Include="test1.cpp" />
     <ClCompile Include="test2.cpp" />
@@ -177,6 +178,7 @@
     <ClCompile Include="util.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\postsrc\negotiator.h" />
     <ClInclude Include="gen.h" />
     <ClInclude Include="handler.h" />
     <ClInclude Include="test5_decls.h" />

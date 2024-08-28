@@ -83,7 +83,7 @@ It find_first_true(It begin, It end, const F &f){
 	return end;
 }
 
-std::unique_ptr<Serializable> DeserializerStream::perform_deserialization(SerializableMetadata &metadata, bool includes_typehashes){
+std::unique_ptr<Serializable> DeserializerStream::perform_deserialization(SerializableMetadata &metadata, const Options &options){
 	this->metadata = &metadata;
 	auto &object_types = this->object_types;
 	object_types.clear();
@@ -92,7 +92,7 @@ std::unique_ptr<Serializable> DeserializerStream::perform_deserialization(Serial
 	try{
 		this->state = State::Safe;
 		this->state = State::ReadingTypeHashes;
-		if (includes_typehashes){
+		if (options.includes_typehashes){
 #ifdef LOG
 			std::clog << "Reading type hashes...\n";
 #endif
@@ -112,6 +112,12 @@ std::unique_ptr<Serializable> DeserializerStream::perform_deserialization(Serial
 			objectid_t object_id;
 			this->deserialize(type_id);
 			this->deserialize(object_id);
+			if (options.type_map){
+				auto it = options.type_map->find(type_id);
+				if (it == options.type_map->end())
+					return {};
+				type_id = it->second;
+			}
 			type_map.push_back(std::make_pair(type_id, object_id));
 		}
 
@@ -124,21 +130,20 @@ std::unique_ptr<Serializable> DeserializerStream::perform_deserialization(Serial
 		this->state = State::AllocatingMemory;
 		std::uint32_t main_object_type = 0;
 		{
-			objectid_t object_id = 1;
-			for (auto &p : type_map){
-				std::uint32_t type_id = p.first;
-				for (; object_id <= p.second; object_id++){
-					object_types[object_id] = type_id;
+			objectid_t expected_object_id = 1;
+			for (auto &[type_id, object_id] : type_map){
+				for (; expected_object_id <= object_id; expected_object_id++){
+					object_types[expected_object_id] = type_id;
 					auto mem = metadata.allocate_memory(*this, type_id);
 					if (!mem)
 						this->report_error(ErrorType::AllocateAbstractObject);
 
-					if (!main_object && object_id == root_object_id){
+					if (!main_object && expected_object_id == root_object_id){
 						main_object = mem;
 						main_object_type = type_id;
 					}
 					try{
-						this->node_map[object_id] = mem;
+						this->node_map[expected_object_id] = mem;
 					}catch (...){
 						::operator delete(mem);
 						throw;

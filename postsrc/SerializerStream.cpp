@@ -47,7 +47,7 @@ void SerializerStream::serialize_id(const Serializable *p){
 #define LOG
 #endif
 
-void SerializerStream::full_serialization(const Serializable &obj, bool include_typehashes){
+bool SerializerStream::full_serialization(const Serializable &obj, const Options &options){
 	auto node = obj.get_object_node();
 #ifdef LOG
 	std::clog << "Traversing reference graph...\n";
@@ -82,7 +82,7 @@ void SerializerStream::full_serialization(const Serializable &obj, bool include_
 			temp_stack.clear();
 		}
 	}
-	if (include_typehashes){
+	if (options.include_typehashes){
 #ifdef LOG
 		std::clog <<
 			"Traversal found " << this->node_map.size() << " objects.\n"
@@ -98,11 +98,12 @@ void SerializerStream::full_serialization(const Serializable &obj, bool include_
 			this->serialize_array(typemap[t]->digest);
 		}
 	}
+
+	if (options.remap_object_ids){
 #ifdef LOG
-	std::clog << "Remapping object IDs...\n";
+		std::clog << "Remapping object IDs...\n";
 #endif
 
-	{
 		std::map<std::uint32_t, std::vector<objectid_t>> remap;
 		for (auto &n : this->node_map)
 			remap[n.second.get_typeid()].push_back(n.first);
@@ -134,15 +135,21 @@ void SerializerStream::full_serialization(const Serializable &obj, bool include_
 
 	{
 		std::vector<std::pair<std::uint32_t, objectid_t>> type_map;
-		for (auto &n : this->node_map){
-			auto type = n.second.get_typeid();
+		for (auto &[oid, node] : this->node_map){
+			auto type = node.get_typeid();
 			if (!type)
 				throw InternalErrorException();
-			if (!type_map.size() || type != type_map.back().first){
-				type_map.push_back(std::make_pair(type, n.first));
+			if (options.type_map){
+				auto it = options.type_map->find(type);
+				if (it == options.type_map->end())
+					return false;
+				type = it->second;
+			}
+			if (type_map.empty() || type != type_map.back().first){
+				type_map.push_back(std::make_pair(type, oid));
 				continue;
 			}
-			type_map.back().second = std::max(type_map.back().second, n.first);
+			type_map.back().second = std::max(type_map.back().second, oid);
 		}
 		this->serialize((wire_size_t)type_map.size());
 		for (auto &i : type_map){
@@ -160,4 +167,5 @@ void SerializerStream::full_serialization(const Serializable &obj, bool include_
 #ifdef LOG
 	std::clog << "Serialization done!\n";
 #endif
+	return true;
 }

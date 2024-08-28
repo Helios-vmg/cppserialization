@@ -100,7 +100,26 @@ class SerializerStream{
 	void serialize_id(const Serializable *p);
 public:
 	SerializerStream(std::ostream &);
-	void full_serialization(const Serializable &obj, bool include_typehashes = false);
+	class Options{
+	public:
+		bool include_typehashes = false;
+		//native type ID -> protocol type ID
+		const std::unordered_map<std::uint32_t, std::uint32_t> *type_map = nullptr;
+		bool remap_object_ids = true;
+	};
+	//Returns false if the serialization could not be performed.
+	bool full_serialization(const Serializable &obj, const Options &);
+	void full_serialization(const Serializable &obj){
+		this->full_serialization(obj, {});
+	}
+	void full_serialization(const Serializable &obj, bool include_typehashes){
+		Options o{ include_typehashes };
+		this->full_serialization(obj, o);
+	}
+	bool full_serialization(const Serializable &obj, const std::unordered_map<std::uint32_t, std::uint32_t> &type_map){
+		Options o{ false, &type_map };
+		return this->full_serialization(obj, o);
+	}
 	template <typename T>
 	void serialize(const T *t){
 		this->serialize_id(t);

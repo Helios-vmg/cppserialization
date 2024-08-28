@@ -28,6 +28,9 @@ struct TypeHash{
 	bool operator!=(const TypeHash &b) const{
 		return !(*this == b);
 	}
+	bool operator<(const TypeHash &b) const{
+		return memcmp(this->digest, b.digest, 32) < 0;
+	}
 };
 
 class SerializableMetadata;

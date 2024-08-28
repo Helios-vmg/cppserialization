@@ -49,6 +49,12 @@ public:
 		OutOfMemory,
 		UnknownEnumValue,
 	};
+	class Options{
+	public:
+		bool includes_typehashes = false;
+		//protocol type ID -> native type ID
+		std::unordered_map<std::uint32_t, std::uint32_t> *type_map = nullptr;
+	};
 private:
 	typedef std::uint32_t objectid_t;
 	
@@ -88,7 +94,7 @@ private:
 	typedef std::unique_ptr<GenericPointer> V;
 	std::map<K, V> base_pointers;
 
-	std::unique_ptr<Serializable> perform_deserialization(SerializableMetadata &, bool includes_typehashes = false);
+	std::unique_ptr<Serializable> perform_deserialization(SerializableMetadata &, const Options &);
 	int categorize_cast(std::uint32_t object_type, std::uint32_t dst_type);
 	std::unique_ptr<GenericPointer> allocate_pointer(std::uint32_t object_type, PointerType pointer_type, objectid_t object);
 	void set_pointer(void *pointer, PointerBackpatch::Setter::callback_t callback, GenericPointer &gp, std::uint32_t pointed_type);
@@ -224,14 +230,23 @@ public:
 	virtual ~DeserializerStream(){}
 	virtual void report_error(ErrorType);
 	template <typename Target>
-	std::unique_ptr<Target> full_deserialization(bool includes_typehashes = false){
+	std::unique_ptr<Target> full_deserialization(const Options &o){
 		auto metadata = Target::static_get_metadata();
-		auto p = this->perform_deserialization(*metadata, includes_typehashes);
+		auto p = this->perform_deserialization(*metadata, o);
 		auto ret = dynamic_cast<Target *>(p.get());
 		if (!ret)
 			return {};
 		p.release();
 		return std::unique_ptr<Target>(ret);
+	}
+	template <typename Target>
+	std::unique_ptr<Target> full_deserialization(){
+		return this->full_deserialization<Target>({});
+	}
+	template <typename Target>
+	std::unique_ptr<Target> full_deserialization(bool includes_typehashes){
+		Options o{ includes_typehashes };
+		return this->full_deserialization<Target>(o);
 	}
 	template <typename T>
 	void deserialize(T *&t){
