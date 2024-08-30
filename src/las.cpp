@@ -1467,8 +1467,15 @@ std::string CppFile::generate_enum_checkers(){
 )file";
 
 	std::string ret;
+	std::vector<std::shared_ptr<UserEnum>> sorted;
+	sorted.reserve(this->enums.size());
+	for (auto &[_, e] : this->enums)
+		sorted.push_back(e);
+	std::sort(sorted.begin(), sorted.end(), [](const auto &left, const auto &right){
+		return left->get_id() < right->get_id();
+	});
 	size_t i = 0;
-	for (auto &[_, e] : this->enums){
+	for (auto &e : sorted){
 		i++;
 		if (e->get_id() != i)
 			throw std::runtime_error("unresolvable condition: can't generate enum checkers");
