@@ -238,6 +238,13 @@ public:
 	EasySignedBigNum(int value) : bignum(value), sign(value < 0){}
 	EasySignedBigNum(const EasyBigNum &b): bignum(b), sign(false){}
 	EasySignedBigNum(EasyBigNum &&b): bignum(std::move(b)), sign(false){}
+	EasySignedBigNum(const char *s): EasySignedBigNum(){
+		if (!s || !*s)
+			return;
+		for (; *s == '-'; s++)
+			this->sign = !this->sign;
+		this->bignum = EasyBigNum(s);
+	}
 	bool positive() const{
 		return !this->sign;
 	}
