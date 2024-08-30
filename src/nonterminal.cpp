@@ -592,7 +592,7 @@ CppNamespaceDeclNonTerminal::CppNamespaceDeclNonTerminal(std::deque<std::shared_
 NamespaceDeclNonTerminal::NamespaceDeclNonTerminal(std::deque<std::shared_ptr<Token>> &input){
 	this->pre(input);
 	while (!input.empty() && *input.front() != FixedTokenType::RBrace)
-		this->declarations.push_back(TypeOrNamespaceNonTerminal::create(input));
+		this->declarations.push_back(TypeOrNamespaceOrIncludeDeclNonTerminal::create(input));
 	this->post(input);
 }
 

@@ -183,7 +183,7 @@ public:
 };
 
 class NamespaceDeclNonTerminal : public BasicNamespaceDeclNonTerminal, public TypeOrNamespaceNonTerminal{
-	std::vector<std::shared_ptr<TypeOrNamespaceNonTerminal>> declarations;
+	std::vector<std::shared_ptr<TypeOrNamespaceOrIncludeDeclNonTerminal>> declarations;
 public:
 	NamespaceDeclNonTerminal(std::deque<std::shared_ptr<Token>> &input);
 	void forward_declare(CppEvaluationState &) override{}

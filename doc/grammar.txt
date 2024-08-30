@@ -43,7 +43,11 @@ type_decl:
     };
 
 namespace_decl:
-    "namespace" IDENT "{" [0,]{ type_or_namespace_decl } "}"
+    "namespace" IDENT "{"
+        [0,]{
+            cpp_namespace_decl_element
+        }
+    "}";
 
 cpp_namespace_decl:
     "namespace" IDENT "{"
