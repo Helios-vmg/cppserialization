@@ -151,3 +151,28 @@ public:
 std::deque<std::shared_ptr<Token>> tokenize(std::deque<char> &input);
 bool is_typename_token(FixedTokenType type);
 bool is_access_specifier_token(FixedTokenType type);
+
+template <typename T>
+std::basic_string<T> make_newlines_consistent(const std::basic_string<T> &input){
+	std::basic_string<T> ret;
+	ret.reserve(input.size() * 2);
+	bool seen_cr = false;
+	const T CR = (T)'\r';
+	const T LF = (T)'\n';
+	for (auto c : input){
+		if (c == LF){
+			ret.push_back(LF);
+			seen_cr = false;
+			continue;
+		}
+		if (seen_cr)
+			ret.push_back(LF);
+		seen_cr = c == CR;
+		if (seen_cr)
+			continue;
+		ret.push_back(c);
+	}
+	if (seen_cr)
+		ret.push_back(LF);
+	return ret;
+}

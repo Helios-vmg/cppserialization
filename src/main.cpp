@@ -22,7 +22,7 @@ std::deque<char> to_deque(const std::string &s){
 }
 
 std::deque<std::shared_ptr<Token>> tokenize(const std::string &input){
-	auto deque = to_deque(input);
+	auto deque = to_deque(make_newlines_consistent(input));
 	return tokenize(deque);
 }
 

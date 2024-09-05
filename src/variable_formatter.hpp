@@ -1,5 +1,6 @@
 #pragma once
 
+#include "token.hpp"
 #include <string>
 #include <map>
 #include <sstream>
@@ -12,7 +13,7 @@ class basic_variable_formatter{
 	str_t last_var;
 	std::map<str_t, str_t> variables;
 public:
-	basic_variable_formatter(const str_t &s): main_string(s), push_state(false){}
+	basic_variable_formatter(const str_t &s): main_string(make_newlines_consistent(s)), push_state(false){}
 
 	template <typename T2>
 	basic_variable_formatter<T> &operator<<(const T2 &v){
