@@ -275,6 +275,11 @@ public:
 		if (this->stream->gcount() < 1)
 			this->report_error(ErrorType::UnexpectedEndOfFile);
 	}
+	template <typename T>
+	std::enable_if_t<is_serializable<T>::value, void>
+	deserialize(T &c){
+		c = T(*this);
+	}
 	void deserialize(std::int8_t &c){
 		this->stream->read((char *)&c, 1);
 		if (this->stream->gcount() < 1)
@@ -393,6 +398,15 @@ public:
 	typename std::enable_if<is_maplike<T>::value, void>::type deserialize(T &s){
 		this->deserialize_maplike<T, typename T::key_type, typename T::mapped_type>(s);
 	}
+	template <typename T>
+	std::enable_if_t<std::is_enum_v<T>, void>
+		deserialize(T &t){
+		std::underlying_type_t<T> temp;
+		this->deserialize(temp);
+		if (!this->metadata->check_enum_value(get_enum_type_id<T>::value, &temp))
+			this->report_error(ErrorType::UnknownEnumValue);
+		t = (T)temp;
+	}
 #ifdef SERIALIZATION_HAVE_STD_OPTIONAL
 	template <typename T>
 	void deserialize(std::optional<T> &o){
@@ -408,15 +422,6 @@ public:
 		o = std::move(temp);
 	}
 #endif
-	template <typename T>
-	std::enable_if_t<std::is_enum_v<T>, void>
-	deserialize(T &t){
-		std::underlying_type_t<T> temp;
-		this->deserialize(temp);
-		if (!this->metadata->check_enum_value(get_enum_type_id<T>::value, &temp))
-			this->report_error(ErrorType::UnknownEnumValue);
-		t = (T)temp;
-	}
 };
 
 class DeserializationException : public std::exception{

@@ -260,6 +260,11 @@ public:
 		serializable.serialize(*this);
 	}
 	template <typename T>
+	std::enable_if_t<std::is_enum_v<T>, void>
+	serialize(T t){
+		this->serialize((std::underlying_type_t<T>)t);
+	}
+	template <typename T>
 	void serialize(const std::optional<T> &o){
 		if (!o){
 			this->serialize(false);
