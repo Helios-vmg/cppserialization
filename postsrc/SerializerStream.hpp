@@ -16,7 +16,7 @@
 #define SERIALIZATION_HAVE_STD_OPTIONAL
 #include <optional>
 #include "serialization_utils.hpp"
-#include "noexcept.h"
+#include "noexcept.hpp"
 
 class Serializable;
 
