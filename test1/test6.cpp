@@ -1,6 +1,6 @@
-#include "test6.generated.h"
+#include "test6.generated.hpp"
 #include "test6.generated.cpp"
-#include "util.h"
+#include "util.hpp"
 
 void test6(std::uint32_t){
 	Object o;

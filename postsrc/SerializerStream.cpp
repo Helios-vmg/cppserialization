@@ -1,5 +1,5 @@
-#include "SerializerStream.h"
-#include "Serializable.h"
+#include "SerializerStream.hpp"
+#include "Serializable.hpp"
 #include <algorithm>
 #include <cassert>
 

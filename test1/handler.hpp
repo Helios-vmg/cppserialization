@@ -1,6 +1,6 @@
 #pragma once
 
-#include "test5_server.generated.h"
+#include "test5_server.generated.hpp"
 
 using server::responses::Response;
 

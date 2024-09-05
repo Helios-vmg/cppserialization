@@ -1,7 +1,7 @@
 #pragma once
 
-#include <Serializable.h>
-#include <DeserializerStream.h>
+#include <Serializable.hpp>
+#include <DeserializerStream.hpp>
 #include <optional>
 #include <sstream>
 

@@ -1,6 +1,6 @@
-#include "test3.generated.h"
+#include "test3.generated.hpp"
 #include "test3.generated.cpp"
-#include "util.h"
+#include "util.hpp"
 #include <random>
 
 using namespace test3_types;

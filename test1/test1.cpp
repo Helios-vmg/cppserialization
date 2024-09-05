@@ -1,7 +1,7 @@
-#include "test1.generated.h"
+#include "test1.generated.hpp"
 #include "test1.generated.cpp"
-#include "gen.h"
-#include "util.h"
+#include "gen.hpp"
+#include "util.hpp"
 #include <chrono>
 
 using namespace test1_types;

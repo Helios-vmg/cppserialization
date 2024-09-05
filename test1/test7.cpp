@@ -1,7 +1,7 @@
-#include "test7_a.generated.h"
-#include "test7_a.generated.h"
-#include "test7_b.generated.h"
-#include "util.h"
+#include "test7_a.generated.hpp"
+#include "test7_a.generated.hpp"
+#include "test7_b.generated.hpp"
+#include "util.hpp"
 #include <optional>
 
 void test7(std::uint32_t){

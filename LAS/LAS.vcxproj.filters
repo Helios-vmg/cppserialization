@@ -42,9 +42,6 @@
     <ClCompile Include="..\postsrc\SerializerStream.cpp">
       <Filter>Source Files\postsrc</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\parser.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\nonterminal.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -56,49 +53,46 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\src\las.h">
+    <ClInclude Include="..\src\las.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\postsrc\serialization_utils.h">
+    <ClInclude Include="..\postsrc\serialization_utils.hpp">
       <Filter>Header Files\postsrc</Filter>
     </ClInclude>
-    <ClInclude Include="..\postsrc\SerializerStream.h">
+    <ClInclude Include="..\postsrc\SerializerStream.hpp">
       <Filter>Header Files\postsrc</Filter>
     </ClInclude>
-    <ClInclude Include="..\postsrc\Serializable.h">
+    <ClInclude Include="..\postsrc\Serializable.hpp">
       <Filter>Header Files\postsrc</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\util.h">
+    <ClInclude Include="..\src\util.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\typehash.h">
+    <ClInclude Include="..\src\typehash.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\sha256.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\variable_formatter.h">
+    <ClInclude Include="..\src\variable_formatter.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\postsrc\DeserializerStream.h">
+    <ClInclude Include="..\postsrc\DeserializerStream.hpp">
       <Filter>Header Files\postsrc</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\parser.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\postsrc\ExampleDeserializerStream.h">
+    <ClInclude Include="..\postsrc\ExampleDeserializerStream.hpp">
       <Filter>Header Files\postsrc</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\errors.h">
+    <ClInclude Include="..\src\errors.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\token.h">
+    <ClInclude Include="..\src\token.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\nonterminal.h">
+    <ClInclude Include="..\src\nonterminal.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\EasyBigNum.h">
+    <ClInclude Include="..\src\EasyBigNum.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

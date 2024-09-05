@@ -1,4 +1,4 @@
-#include "gen.h"
+#include "gen.hpp"
 
 #ifndef NONUNIFORM_SAMPLING
 

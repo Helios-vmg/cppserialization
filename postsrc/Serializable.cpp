@@ -1,5 +1,5 @@
-#include "Serializable.h"
-#include "DeserializerStream.h"
+#include "Serializable.hpp"
+#include "DeserializerStream.hpp"
 
 std::atomic<Serializable::oid_t> Serializable::next_id;
 

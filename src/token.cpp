@@ -1,9 +1,8 @@
-#include "token.h"
+#include "token.hpp"
+#include "errors.hpp"
 #include <cassert>
 #include <cctype>
 #include <stdexcept>
-
-#include "errors.h"
 
 using namespace std::string_literals;
 

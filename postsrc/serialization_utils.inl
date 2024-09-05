@@ -1,8 +1,8 @@
 #ifndef SERIALIZATION_UTILS_INL
 #define SERIALIZATION_UTILS_INL
 
-#include "SerializerStream.h"
-#include "DeserializerStream.h"
+#include "SerializerStream.hpp"
+#include "DeserializerStream.hpp"
 
 template <typename T>
 ObjectNode get_object_node_default(T *n, std::uint32_t type_id){

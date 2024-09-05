@@ -1,8 +1,8 @@
 #pragma once
 
-#include "typehash.h"
-#include "EasyBigNum.h"
-#include "variable_formatter.h"
+#include "typehash.hpp"
+#include "EasyBigNum.hpp"
+#include "variable_formatter.hpp"
 #include <iostream>
 #include <sstream>
 #include <memory>

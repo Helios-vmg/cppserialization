@@ -1,6 +1,6 @@
-#include "test4.generated.h"
+#include "test4.generated.hpp"
 #include "test4.generated.cpp"
-#include "util.h"
+#include "util.hpp"
 
 void test4(std::uint32_t){
 	auto c = std::make_shared<C>();

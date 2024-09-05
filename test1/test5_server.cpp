@@ -1,6 +1,6 @@
-#include "test5_server.generated.h"
+#include "test5_server.generated.hpp"
 #include "test5_server.generated.cpp"
-#include "handler.h"
+#include "handler.hpp"
 
 extern const std::string valid_filename;
 

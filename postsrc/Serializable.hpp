@@ -1,8 +1,8 @@
 #ifndef SERIALIZABLE_H
 #define SERIALIZABLE_H
 
-#include "serialization_utils.h"
-#include "SerializerStream.h"
+#include "serialization_utils.hpp"
+#include "SerializerStream.hpp"
 #include <utility>
 #include <array>
 #include <atomic>

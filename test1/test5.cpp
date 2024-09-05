@@ -1,7 +1,7 @@
-#include "test5_client.generated.h"
-#include "test5_server.generated.h"
-#include "handler.h"
-#include "util.h"
+#include "test5_client.generated.hpp"
+#include "test5_server.generated.hpp"
+#include "handler.hpp"
+#include "util.hpp"
 #include <random>
 
 extern const std::string valid_filename = "c:/foo.txt";

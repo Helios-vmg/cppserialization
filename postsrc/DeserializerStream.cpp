@@ -1,5 +1,5 @@
-#include "DeserializerStream.h"
-#include "Serializable.h"
+#include "DeserializerStream.hpp"
+#include "Serializable.hpp"
 #include <cstdint>
 #include <cassert>
 

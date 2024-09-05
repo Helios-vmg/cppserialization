@@ -1,4 +1,4 @@
-#include "EasyBigNum.h"
+#include "EasyBigNum.hpp"
 #include <cstdint>
 #include <random>
 #include <vector>

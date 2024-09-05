@@ -1,4 +1,4 @@
-#include "negotiator.h"
+#include "negotiator.hpp"
 #include <stdexcept>
 
 namespace type_negotiation{

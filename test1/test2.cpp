@@ -1,6 +1,6 @@
-#include "test2.generated.h"
+#include "test2.generated.hpp"
 #include "test2.generated.cpp"
-#include "util.h"
+#include "util.hpp"
 
 using namespace test2_types;
 

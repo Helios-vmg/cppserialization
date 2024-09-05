@@ -2,9 +2,9 @@
 
 #include <unordered_set>
 
-#include "las.h"
-#include "nonterminal.h"
-#include "token.h"
+#include "las.hpp"
+#include "nonterminal.hpp"
+#include "token.hpp"
 
 typedef std::unordered_map<std::string, std::shared_ptr<Type>> dsl_type_map_t;
 

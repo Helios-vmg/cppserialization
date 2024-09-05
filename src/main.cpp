@@ -1,6 +1,6 @@
-#include "las.h"
-#include "token.h"
-#include "nonterminal.h"
+#include "las.hpp"
+#include "token.hpp"
+#include "nonterminal.hpp"
 #include <functional>
 #include <fstream>
 #include <queue>

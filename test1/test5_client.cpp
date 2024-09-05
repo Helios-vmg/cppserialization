@@ -1,4 +1,4 @@
-#include "test5_client.generated.h"
+#include "test5_client.generated.hpp"
 #include "test5_client.generated.cpp"
 #include <sstream>
 

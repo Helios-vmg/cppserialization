@@ -1,8 +1,8 @@
-#include "las.h"
-#include "util.h"
-#include "variable_formatter.h"
-#include "typehash.h"
-#include "nonterminal.h"
+#include "las.hpp"
+#include "util.hpp"
+#include "variable_formatter.hpp"
+#include "typehash.hpp"
+#include "nonterminal.hpp"
 #include <fstream>
 #include <sstream>
 #include <array>
@@ -859,7 +859,7 @@ void require_cpp(std::ostream &s, CppVersion version){
 void CppFile::generate_header(){
 	this->assign_type_ids();
 
-	auto filename = this->get_name() + ".generated.h";
+	auto filename = this->get_name() + ".generated.hpp";
 	auto macro = filename_to_macro(filename);
 
 	std::ofstream file(filename.c_str());
@@ -877,10 +877,10 @@ void CppFile::generate_header(){
 		c.second->add_headers(includes);
 	for (auto &h : includes)
 		file << "#include " << h << std::endl;
-	file << R"file(#include "serialization_utils.h"
-#include "Serializable.h"
-#include "SerializerStream.h"
-#include "DeserializerStream.h"
+	file << R"file(#include "serialization_utils.hpp"
+#include "Serializable.hpp"
+#include "SerializerStream.hpp"
+#include "DeserializerStream.hpp"
 #include "serialization_utils.inl"
 
 /*template <typename T>
@@ -908,8 +908,8 @@ std::string generate_get_metadata_signature(){
 std::string CppFile::generate_source1(){
 	static const char * const pattern =
 R"file(
-#include "Serializable.h"
-#include "{name}.generated.h"
+#include "Serializable.hpp"
+#include "{name}.generated.hpp"
 #include <utility>
 #include <cstdint>
 #include <memory>

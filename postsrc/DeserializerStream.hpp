@@ -15,8 +15,8 @@
 #define SERIALIZATION_HAVE_STD_OPTIONAL
 #include <optional>
 #endif
-#include "Serializable.h"
-#include "serialization_utils.h"
+#include "Serializable.hpp"
+#include "serialization_utils.hpp"
 
 class Serializable;
 struct TypeHash;

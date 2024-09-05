@@ -1,6 +1,6 @@
 #pragma once
 
-#include "EasyBigNum.h"
+#include "EasyBigNum.hpp"
 #include <string>
 #include <memory>
 #include <queue>

@@ -1,4 +1,4 @@
-#include "typehash.h"
+#include "typehash.hpp"
 #include "sha256.h"
 #include <sstream>
 #include <iomanip>

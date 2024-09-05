@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Serializable.h>
+#include <Serializable.hpp>
 #include <map>
 #include <cstdint>
 #include <optional>

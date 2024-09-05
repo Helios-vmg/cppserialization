@@ -208,7 +208,7 @@ decl test5_types{
 	}
 }
 cpp test5_client{
-	local_include "test5_decls.h"
+	local_include "test5_decls.hpp"
     Request_decl = verbatim{}verbatim
     RequestDerived_decl = verbatim{}verbatim
     Response_decl = verbatim{
@@ -224,7 +224,7 @@ cpp test5_client{
     }
 }
 cpp test5_server{
-	local_include "test5_decls.h"
+	local_include "test5_decls.hpp"
     Request_decl = verbatim{
 		public:
 			virtual std::unique_ptr<responses::Response> handle(RequestHandler &) const = 0;

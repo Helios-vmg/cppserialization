@@ -1,5 +1,5 @@
-#include "nonterminal.h"
-#include "errors.h"
+#include "nonterminal.hpp"
+#include "errors.hpp"
 #include <deque>
 #include <stdexcept>
 #include <unordered_map>
