@@ -1,6 +1,6 @@
 #pragma once
 
-#include "noexcept.h"
+#include "noexcept.hpp"
 #include <exception>
 #include <string>
 
