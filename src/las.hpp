@@ -174,7 +174,7 @@ class IntegerType : public Type{
 	//valid sizes = 0, 1, 2, 3
 	unsigned size;
 
-	static std::shared_ptr<IntegerType> creator_helper(size_t i){
+	static std::shared_ptr<IntegerType> creator_helper(unsigned i){
 		return std::make_shared<IntegerType>(!!(i & 1), i / 2);
 	}
 public:
@@ -249,18 +249,14 @@ public:
 		return "<string>";
 	}
 	std::string get_serializer_name() const override{
-		const char *s;
 		switch (this->width) {
 			case CharacterWidth::Narrow:
-				s = "str";
-				break;
+				return "str";
 			case CharacterWidth::Wide:
-				s = "u32str";
-				break;
+				return "u32str";
 			default:
-				break;
+				throw std::exception();
 		}
-		return s;
 	}
 };
 

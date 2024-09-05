@@ -70,18 +70,14 @@ bool IntegerType::check_value(const EasySignedBigNum &value){
 }
 
 std::string FloatingPointType::get_serializer_name() const{
-	const char *s;
 	switch (this->precision) {
 		case FloatingPointPrecision::Float:
-			s = "float";
-			break;
+			return "float";
 		case FloatingPointPrecision::Double:
-			s = "double";
-			break;
+			return "double";
 		default:
-			break;
+			throw std::exception();
 	}
-	return s;
 }
 
 std::string StringType::get_source_name() const{
@@ -587,6 +583,10 @@ void UserClass::mark_virtual_inheritances(std::uint32_t serializable_type_id){
 			counts[id]++;
 		}
 	}
+	
+	if (counts.size() > std::numeric_limits<std::uint32_t>::max())
+		throw std::overflow_error("too many counts");
+
 	std::vector<std::uint32_t> virtual_classes;
 	for (size_t i = 0; i < counts.size(); i++)
 		if (counts[i] > 1)
