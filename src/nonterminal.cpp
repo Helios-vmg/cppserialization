@@ -54,8 +54,24 @@ EnumMemberNonTerminal::EnumMemberNonTerminal(std::deque<std::shared_ptr<Token>> 
 	this->value = std::static_pointer_cast<IntegerToken>(input.front());
 	input.pop_front();
 
+	if (*input.front() != FixedTokenType::Comma){
+		require_token_type(input, TokenType::StringLiteralToken);
+		while (input.front()->token_type() == TokenType::StringLiteralToken){
+			this->additional_strings.push_back(std::static_pointer_cast<StringLiteralToken>(input.front()));
+			input.pop_front();
+		}
+	}
+
 	require_fixed_token(input, FixedTokenType::Comma);
 	input.pop_front();
+}
+
+std::tuple<std::string, EasySignedBigNum, std::vector<std::string>> EnumMemberNonTerminal::get() const{
+	std::vector<std::string> additional_strings;
+	additional_strings.reserve(this->additional_strings.size());
+	for (auto &s : this->additional_strings)
+		additional_strings.push_back(s->get_value());
+	return { this->name->get_name(), this->value->get_value(), std::move(additional_strings) };
 }
 
 std::shared_ptr<Type> create_basic_type(FixedTokenType t){
@@ -137,8 +153,8 @@ void EnumNonTerminal::finish_declaration(const std::shared_ptr<CppElement> &elem
 		throw std::runtime_error("Internal error: program in unknown state!");
 
 	for (auto &m : this->members){
-		auto [name, value] = m->get();
-		Enum->set(std::move(name), std::move(value));
+		auto [name, value, strings] = m->get();
+		Enum->set(std::move(name), std::move(value), std::move(strings));
 	}
 }
 

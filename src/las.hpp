@@ -14,6 +14,7 @@
 #include <functional>
 #include <cstdint>
 #include <random>
+#include <optional>
 
 #define SERIALIZER_VERSION 1
 
@@ -688,16 +689,23 @@ class UserEnum : public UserType{
 	std::uint32_t id;
 	std::shared_ptr<Type> underlying_type;
 	std::map<std::string, EasySignedBigNum> members_by_name;
+	std::map<std::string, std::vector<std::string>> additional_strings_by_name;
 	std::map<EasySignedBigNum, std::string> members_by_value;
+	mutable std::optional<size_t> cached_max_additional_strings;
 
 	std::string generate_members() const;
+	std::string generate_stringifier_cases() const;
+	std::string get_stringifier_return_type() const;
+	std::string get_stringifier_signature() const;
+	size_t get_max_additional_strings() const;
+	std::string get_stringifier_default_value() const;
 public:
 	UserEnum(CppEvaluationState &, std::string name, std::vector<std::string> _namespace, std::shared_ptr<Type> underlying_type);
 	std::string base_get_type_string() const override;
 	std::string get_serializer_name() const override{
 		return this->name;
 	}
-	void set(std::string name, EasySignedBigNum value);
+	void set(std::string name, EasySignedBigNum value, std::vector<std::string> additional_strings);
 	std::string generate_forward_declaration() const override;
 	std::string generate_header() const override;
 	std::shared_ptr<Type> get_underlying_type() override{
@@ -707,6 +715,7 @@ public:
 		return this->id;
 	}
 	std::vector<EasySignedBigNum> get_valid_values() const;
+	std::string generate_stringifier();
 };
 
 class CppFile{
@@ -768,6 +777,7 @@ public:
 	std::string generate_pointer_allocator();
 	std::string generate_cast_categorizer();
 	std::string generate_enum_checker();
+	std::string generate_enum_stringifiers();
 	std::string generate_get_metadata();
 	std::uint32_t assign_type_ids();
 	void mark_virtual_inheritances();

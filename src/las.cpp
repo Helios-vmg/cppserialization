@@ -700,7 +700,7 @@ std::string UserEnum::base_get_type_string() const{
 	return "{enum" + this->name + ":" + this->underlying_type->base_get_type_string() + "}";
 }
 
-void UserEnum::set(std::string name, EasySignedBigNum value){
+void UserEnum::set(std::string name, EasySignedBigNum value, std::vector<std::string> additional_strings){
 	auto it1 = this->members_by_name.find(name);
 	if (it1 != this->members_by_name.end())
 		throw std::runtime_error("enum " + this->name + " contains member " + name + " multiple times");
@@ -712,6 +712,7 @@ void UserEnum::set(std::string name, EasySignedBigNum value){
 		throw std::runtime_error("value " + value.to_string() + " is out of bounds for type " + this->underlying_type->get_source_name());
 
 	this->members_by_name[name] = value;
+	this->additional_strings_by_name[name] = std::move(additional_strings);
 	this->members_by_value[std::move(value)] = std::move(name);
 }
 
@@ -735,13 +736,97 @@ template <>
 struct get_enum_type_id<{name}>{{
 	static const std::uint32_t value = {id};
 }};
+
+{stringifier_signature};
 )file";
 
 	return variable_formatter(format)
 		<< "name" << this->get_source_name()
 		<< "underlying_type" << this->underlying_type->get_source_name()
 		<< "members" << this->generate_members()
-		<< "id" << this->id;
+		<< "id" << this->id
+		<< "stringifier_signature" << this->get_stringifier_signature()
+	;
+}
+
+std::string UserEnum::generate_stringifier(){
+	static const char *const format = R"file(
+{signature}{{
+	{return_type} ret = {default_value};
+	switch (value){{
+{switch_cases}
+		default:
+			break;
+	}}
+	return ret;
+}}
+)file";
+
+	return variable_formatter(format)
+		<< "signature" << this->get_stringifier_signature()
+		<< "return_type" << this->get_stringifier_return_type()
+		<< "default_value" << this->get_stringifier_default_value()
+		<< "name" << this->get_source_name()
+		<< "switch_cases" << this->generate_stringifier_cases();
+}
+
+size_t UserEnum::get_max_additional_strings() const{
+	if (this->cached_max_additional_strings)
+		return *this->cached_max_additional_strings;
+	size_t ret = 0;
+	for (auto &[_, as] : this->additional_strings_by_name)
+		ret = std::max(ret, as.size());
+	this->cached_max_additional_strings = ret;
+	return ret;
+}
+
+std::string UserEnum::get_stringifier_return_type() const{
+	auto n = this->get_max_additional_strings();
+	if (!n)
+		return "const char *";
+	n++;
+	return "std::array<const char *," + std::to_string(n) + ">";
+}
+
+std::string UserEnum::get_stringifier_signature() const{
+	return this->get_stringifier_return_type() + " get_enum_string(" + this->get_source_name() + " value)";
+}
+
+std::string UserEnum::get_stringifier_default_value() const{
+	auto n = this->get_max_additional_strings();
+	if (!n)
+		return "nullptr";
+	n++;
+	std::string ret = "{ ";
+	while (n--){
+		ret += "nullptr, ";
+	}
+	ret += "}";
+	return ret;
+}
+
+std::string UserEnum::generate_stringifier_cases() const{
+	std::stringstream ret;
+	auto n = this->get_max_additional_strings() + 1;
+	for (auto &[_, name] : this->members_by_value){
+		ret << "case " << this->get_source_name() << "::" << name << ":\n";
+		if (n == 1)
+			ret << "\tret = \"" << name << "\";\n";
+		else{
+			ret << "\tret[0] = \"" << name << "\";\n";
+			auto &as = this->additional_strings_by_name.find(name)->second;
+			for (size_t i = 0; i < n - 1; i++){
+				ret << "\tret[" << i + 1 << "] = ";
+				if (i < as.size())
+					ret << "\"" << as[i] << "\"";
+				else
+					ret << "nullptr";
+				ret << ";\n";
+			}
+		}
+		ret << "break;\n";
+	}
+	return ret.str();
 }
 
 std::vector<EasySignedBigNum> UserEnum::get_valid_values() const{
@@ -968,6 +1053,7 @@ void CppFile::generate_source(){
 		&CppFile::generate_pointer_allocator,
 		&CppFile::generate_cast_categorizer,
 		&CppFile::generate_enum_checker,
+		&CppFile::generate_enum_stringifiers,
 		&CppFile::generate_get_metadata,
 	};
 
@@ -1521,6 +1607,13 @@ bool {name}(std::uint32_t enum_type_id, const void *value){{
 		<< "checkers" << this->generate_enum_checkers()
 		<< "max_type" << this->enums.size()
 	;
+}
+
+std::string CppFile::generate_enum_stringifiers(){
+	std::string ret;
+	for (auto &[_, e] : this->enums)
+		ret += e->generate_stringifier();
+	return ret;
 }
 
 std::string CppFile::generate_type_comments(){

@@ -241,10 +241,10 @@ cpp test5_server{
 }
 cpp test6{
 	enum ObjectType : u32{
-		Null = 0,
-		Int = 1,
-		Double = 2,
-		String = 3,
+		Null   = 0 "null",
+		Int    = 1 "int",
+		Double = 2 "double",
+		String = 3 "string" "str",
 	}
 	class Object{
 	public:

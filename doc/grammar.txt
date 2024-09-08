@@ -97,7 +97,7 @@ enum_decl:
     "enum" IDENT ":" numeric_type_spec "{" [0,]{ enum_member_decl } "}";
     
 enum_member_decl:
-    IDENT "=" NUMBER ",";
+    IDENT "=" NUMBER [0,]{ STRING } ",";
 
 numeric_type_spec:
     1{

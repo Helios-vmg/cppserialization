@@ -214,11 +214,10 @@ public:
 class EnumMemberNonTerminal{
 	std::shared_ptr<IdentifierToken> name;
 	std::shared_ptr<IntegerToken> value;
+	std::vector<std::shared_ptr<StringLiteralToken>> additional_strings;
 public:
 	EnumMemberNonTerminal(std::deque<std::shared_ptr<Token>> &input);
-	std::pair<std::string, EasySignedBigNum> get() const{
-		return { this->name->get_name(), this->value->get_value() };
-	}
+	std::tuple<std::string, EasySignedBigNum, std::vector<std::string>> get() const;
 };
 
 class EnumNonTerminal : public TypeDeclarationNonTerminal{

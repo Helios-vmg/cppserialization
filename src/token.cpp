@@ -7,7 +7,7 @@
 using namespace std::string_literals;
 
 const char * const whitespace = " \f\t\r\n";
-const char * const simple_tokens = "<>{}[]:;#,$=";
+const char * const simple_tokens = "()<>{}[]:;#,$=";
 
 const char *const keywords[] = {
 	"cpp",
