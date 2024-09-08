@@ -588,7 +588,8 @@ void UserClass::mark_virtual_inheritances(std::uint32_t serializable_type_id){
 		throw std::overflow_error("too many counts");
 
 	std::vector<std::uint32_t> virtual_classes;
-	for (size_t i = 0; i < counts.size(); i++)
+	auto n = (std::uint32_t)counts.size();
+	for (std::uint32_t i = 0; i < n; i++)
 		if (counts[i] > 1)
 			virtual_classes.push_back(i);
 	this->mark_virtual_inheritances(serializable_type_id, virtual_classes);
