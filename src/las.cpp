@@ -209,10 +209,12 @@ void StdSmartPtrType::generate_pointer_enumerator(generate_pointer_enumerator_ca
 }
 
 void SequenceType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
-	static const char *format = 
-		"for (const auto &{index} : {name}){{"
-			"{contents}"
-		"}}";
+	static const char *format =
+R"file(
+for (const auto &{index} : {name}){{
+{contents}
+}}
+)file";
 	variable_formatter vf(format);
 	auto index = get_unique_varname();
 	vf << "index" << index << "name" << this_name;
@@ -220,10 +222,12 @@ void SequenceType::generate_pointer_enumerator(generate_pointer_enumerator_callb
 }
 
 void AssociativeArrayType::generate_pointer_enumerator(generate_pointer_enumerator_callback_t &callback, const std::string &this_name) const{
-	static const char *format = 
-		"for (const auto &{index} : {name}){{"
-			"{contents}"
-		"}}";
+	static const char *format =
+R"file(
+for (const auto &{index} : {name}){{
+{contents}
+}}
+)file";
 	variable_formatter vf(format);
 	auto index = get_unique_varname();
 	vf << "index" << index << "name" << this_name;
@@ -293,16 +297,24 @@ std::string UserClass::generate_header() const{
 		stream << el->output() << (el->needs_semicolon() ? ";\n" : "\n");
 
 	static const char * const format =
-		"public:\n"
-		"{name}(DeserializerStream &);\n"
-		"virtual ~{name}();\n"
-		"virtual void get_object_node(std::vector<ObjectNode> &) const override;\n"
-		"virtual void serialize(SerializerStream &) const override;\n"
-		"virtual std::uint32_t get_type_id() const override;\n"
-		"virtual TypeHash get_type_hash() const override;\n"
-		"virtual std::shared_ptr<SerializableMetadata> get_metadata() const override;\n"
-		"static std::shared_ptr<SerializableMetadata> static_get_metadata();\n"
-		"}};\n";
+R"file(
+public:
+	{name}(DeserializerStream &);
+	virtual ~{name}();
+	virtual void get_object_node(std::vector<ObjectNode> &) const override;
+	virtual void serialize(SerializerStream &) const override;
+	virtual std::uint32_t get_type_id() const override;
+	virtual TypeHash get_type_hash() const override;
+	virtual std::shared_ptr<SerializableMetadata> get_metadata() const override;
+	static std::shared_ptr<SerializableMetadata> static_get_metadata();
+	static const char *static_get_class_name(){{
+		return "{name}";
+	}}
+	const char *get_class_name() const override{{
+		return static_get_class_name();
+	}}
+}};
+)file";
 	stream << (std::string)(variable_formatter(format) << "name" << this->name);
 
 	auto ts = this->base_get_type_string();
@@ -969,8 +981,6 @@ void CppFile::generate_header(){
 #include "DeserializerStream.hpp"
 #include "serialization_utils.inl"
 
-/*template <typename T>
-struct get_enum_type_id{};*/
 )file"
 	;
 	for (auto &e : this->elements)

@@ -71,6 +71,8 @@ void test1(std::uint32_t seed){
 	double serialization_total = 0;
 	double deserialization_total = 0;
 	const int N = 10'000;
+	test_assertion(!strcmp(A().get_class_name(), "A"), "test failed: incorrect name generation");
+	test_assertion(!strcmp(A::static_get_class_name(), "A"), "test failed: incorrect name generation");
 	for (int i = N; i--;){
 		A a;
 		gen(a, rng);

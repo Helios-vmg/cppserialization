@@ -65,6 +65,7 @@ public:
 	oid_t get_id() const{
 		return this->id;
 	}
+	virtual const char *get_class_name() const = 0;
 };
 
 inline ObjectNode get_object_node(const Serializable *serializable){
